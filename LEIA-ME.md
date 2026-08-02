@@ -91,9 +91,25 @@ chamadas seguidas; o aplicativo distribuído continua anônimo.
 | `sentences_ai.py` | banco de frases gerado por IA (offline, embutido) |
 | `gui_backend.py` | escolhe FreeSimpleGUI ou PySimpleGUI conforme a edição |
 | `build.py` | empacota as duas edições |
-| `original/` | fonte recuperado do executável, sem alterações (referência) |
-| `docs/RECUPERACAO.md` | como o código foi recuperado do `.exe` |
-| `docs/LICOES_APRENDIDAS.md` | armadilhas encontradas no caminho |
+| `tools/` | gerador do banco de frases e verificador de bytecode |
+| `original/` | fonte e binários originais, sem alterações (referência) |
+| `docs/` | documentação completa — comece por `docs/README.md` |
+
+## Documentação
+
+Todo o conhecimento do projeto está em [docs/](docs/README.md):
+
+- **[docs/ARQUITETURA.md](docs/ARQUITETURA.md)** — o desenho do programa e o porquê de
+  cada decisão (erro permanente, um elemento por caractere, recriar a janela na troca de
+  idioma…).
+- **[docs/API_IA.md](docs/API_IA.md)** — a API anônima usada, as três armadilhas que
+  custaram tempo (403 por User-Agent, raciocínio vazando na resposta, thread) e as
+  alternativas caso o serviço mude.
+- **[docs/BUILD.md](docs/BUILD.md)** — empacotamento nas duas plataformas, inclusive o
+  passo a passo do `.exe` sob Wine.
+- **[docs/RECUPERACAO.md](docs/RECUPERACAO.md)** — como o fonte foi recuperado do `.exe`,
+  com o comando para refazer a verificação hoje.
+- **[docs/LICOES_APRENDIDAS.md](docs/LICOES_APRENDIDAS.md)** — índice das armadilhas.
 
 ## Histórico
 
