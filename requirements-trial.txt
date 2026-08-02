@@ -1,0 +1,4 @@
+# Edição de demonstração: PySimpleGUI exige registro do usuário na primeira execução.
+# O binário original usava a 5.0.10, mas a série 5 foi retirada do PyPI — hoje instala 6.x,
+# que mantém a mesma API dos elementos usados aqui (testado com a 6.2).
+PySimpleGUI>=6.0
