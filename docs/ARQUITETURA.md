@@ -191,9 +191,10 @@ princípio: em coordenadas lógicas fixas, o Canvas reescala sozinho, e destacar
 
 ## Por que uma janela só
 
-Todo o Modo Lição — prévia, exercício e relatório — vive numa `sg.Window` de
-tamanho fixo, e trocar de tela é alternar a visibilidade de `sg.Column`s
-(`aplicativo.py` + `telas.py`).
+**O programa inteiro** — menu, guia, prévia, exercício, relatório, treino livre e
+progresso — vive numa `sg.Window` de tamanho fixo, e trocar de tela é alternar a
+visibilidade de `sg.Column`s (`aplicativo.py` + `telas.py`). `grep 'sg.Window('`
+no código do aplicativo devolve **uma** ocorrência.
 
 Não é preferência estética. Cada janela modal que abre rouba o foco do teclado e
 muda o que está sob os olhos; num treinador de digitação isso obriga o aluno a
@@ -231,3 +232,15 @@ a letra precisa continuar legível justamente durante o exercício.
 em cada `sg.Text` funcionaria hoje e quebraria amanhã: qualquer elemento novo
 nasceria com o cinza-ardósia do tema padrão. Foi assim que o aplicativo chegou a
 abrir com texto cinza sobre fundo cinza mesmo com a paleta correta.
+
+
+## O que sobrou no `TouchTypingTrainer.py`
+
+Depois que o menu virou tela, o módulo deixou de desenhar. Ficou com o que é
+regra e dado: de onde vêm as frases (internas, arquivo, IA), como o exercício
+livre é sorteado (`preparar_treino_livre`) e como o resultado é gravado
+(`gravar_treino_livre`).
+
+`gravar_treino_livre` recebe o **arquivo** por parâmetro, e não usa o global do
+módulo. Foi um defeito real: a tela chamava a versão sem parâmetro e um teste
+gravou no histórico de verdade do usuário.

@@ -85,10 +85,24 @@ No fim de cada exercício o relatório oferece **Repetir** (o mesmo texto, mesma
 
 ### Tudo numa janela só
 
-O Modo Lição inteiro — tela prévia, exercício e relatório — acontece numa janela de
-tamanho fixo, trocando o conteúdo da mesma área. Nada de janela nova a cada etapa:
-cada uma roubaria o foco do teclado e obrigaria a tirar as mãos da linha-base, que é
-justamente o hábito que o programa existe para desfazer.
+O programa inteiro — menu, guia de mãos, tela prévia, exercício, relatório, treino
+livre e progresso — vive numa **única** janela de tamanho fixo, trocando o conteúdo
+da mesma área. Nada de janela nova a cada etapa: cada uma roubaria o foco do teclado
+e obrigaria a tirar as mãos da linha-base, que é justamente o hábito que o programa
+existe para desfazer.
+
+A única exceção é trocar de idioma, que reconstrói a janela — os rótulos mudam de
+largura e frame do Tk não se redimensiona depois de criado.
+
+### Meu progresso
+
+Tela nova, lendo o mesmo `dados/progresso.jsonl`:
+
+- **evolução por dia** — exercícios, WPM médio e precisão, e se você está subindo
+  ou caindo em relação aos dias anteriores;
+- **teclas que você mais erra**, com a troca mais frequente: `J → K (4x)` significa
+  que você usou o dedo médio no lugar do indicador;
+- **dedos que mais erram**, somando todas as teclas de cada um.
 
 O progresso fica em `dados/progresso.jsonl`, **ao lado do executável** — copiou a
 pasta para o pendrive, levou o histórico junto. Se essa pasta for somente-leitura, cai
@@ -101,7 +115,7 @@ para a pasta do usuário e o programa avisa.
 .venv/bin/python -m pytest tests/ -v
 ```
 
-São 221 testes cobrindo os módulos sem GUI e, quando há servidor gráfico, também o
+São 252 testes cobrindo os módulos sem GUI e, quando há servidor gráfico, também o
 teclado e as mãos desenhados. Alguns leem a **cor real dos widgets na janela montada**
 para provar que o texto ficou legível — paleta correta não garante tela legível. Sem
 `DISPLAY`, os testes de tela são pulados em vez de falhar.
@@ -157,7 +171,7 @@ chamadas seguidas; o aplicativo distribuído continua anônimo.
 
 | arquivo | papel |
 |---|---|
-| `TouchTypingTrainer.py` | aplicativo: menu, sessão de treino livre, relatório |
+| `TouchTypingTrainer.py` | frases, sorteio do treino livre e gravação — sem desenhar nada |
 | `i18n.py` | todos os textos nos três idiomas + `get_text` |
 | `tema.py` | fonte, paleta e escala tipográfica — um lugar só (sem GUI) |
 | `aplicativo.py` | a janela única e o laço que troca de tela |
@@ -172,7 +186,8 @@ chamadas seguidas; o aplicativo distribuído continua anônimo.
 | `teclado_widget.py` | teclado desenhado no Canvas, com cor por dedo |
 | `maos_widget.py` | as duas mãos desenhadas, dedo da vez aceso |
 | `modo_licao.py` | tela prévia com teste de mãos e exercício travado |
-| `tests/` | suíte pytest — 221 testes |
+| `progresso.py` | evolução por dia e diagnóstico de tecla/dedo (sem GUI) |
+| `tests/` | suíte pytest — 252 testes |
 | `ai_exercises.py` | cliente da API anônima + cache local |
 | `sentences_ai.py` | banco de frases gerado por IA (offline, embutido) |
 | `gui_backend.py` | escolhe FreeSimpleGUI ou PySimpleGUI conforme a edição |
