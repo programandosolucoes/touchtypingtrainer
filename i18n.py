@@ -5,12 +5,17 @@ mensagens de erro, cores dos caracteres durante o exercício e até as frases de
 embutidas. Trocar de idioma em tempo de execução é só recriar a janela lendo outra
 chave deste dicionário — por isso nenhum texto fica escrito direto na tela.
 
-Chaves terminadas em `_ascii` alimentam o desenho do teclado; `short_sentences` e
-`long_sentences` são as frases de treino que acompanham o programa (a IA acrescenta
-outras em tempo de execução, ver `ai_exercises.py`).
+`short_sentences` e `long_sentences` são as frases de treino que acompanham o programa
+(a IA acrescenta outras em tempo de execução, ver `ai_exercises.py`); as chaves
+`licao_*` são o Modo Lição.
+
+As cores dos caracteres (`pending_char_color` e afins) existem só no bloco `en` de
+propósito: cor não se traduz, e o `get_text` já cai para o inglês quando a chave falta
+no idioma ativo.
+
+O desenho do teclado em ASCII foi aposentado pelo `teclado_widget.py`, que desenha o
+teclado de verdade e sabe qual dedo vai em qual tecla — informação que aqui era prosa.
 """
-from keyboards import (abnt2_full_keyboard_ascii, focused_keys_ascii_template,
-                       it_qwerty_full_keyboard_ascii, us_qwerty_full_keyboard_ascii)
 
 translations = {
     'en': {
@@ -27,17 +32,17 @@ translations = {
         'load_custom_file_button': 'Load Sentences (.txt)', 'download_example_button': 'Download Example .txt',
         'file_loaded_popup': 'Sentences loaded from: {}', 'file_load_error_popup': 'Error loading file: {}',
         'example_file_saved_popup': 'Example file saved to: {}', 'example_file_save_error_popup': 'Error saving example file.',
-        'hand_guide_title': 'US QWERTY Hand Positioning Guide', 'key_right_of_p_char_en': ';',
-        'focused_ascii_line1': 'Focus: QWERTY Row & Semicolon Key', 'left_hand_label': 'Left Hand', 'right_hand_label': 'Right Hand',
-        'focused_ascii_line2': '(LP=Left Pinky, LR=Left Ring, etc.)', 'legend_title_ascii': 'Finger Legend:',
-        'pinky_label_ascii': 'Pinky', 'ring_label_ascii': 'Ring', 'middle_label_ascii': 'Middle', 'index_label_ascii': 'Index',
-        'left_label_short_ascii': 'L', 'right_label_short_ascii': 'R',
-        'L_P_key_label_ascii': 'LP', 'L_R_key_label_ascii': 'LR', 'L_M_key_label_ascii': 'LM', 'L_I_key_label_ascii': 'LI',
-        'R_P_key_label_ascii': 'RP', 'R_R_key_label_ascii': 'RR', 'R_M_key_label_ascii': 'RM', 'R_I_key_label_ascii': 'RI',
-        'R_P_Alt_key_label_ascii': 'RP', 'thumbs_rest_label_ascii': 'Thumbs rest on SPACEBAR.',
-        'general_keyboard_layout_label': '\nGeneral US QWERTY Keyboard Layout Context:', 'full_keyboard_ascii_art': us_qwerty_full_keyboard_ascii,
-        'hand_guide_text_intro': "Proper hand positioning is key for efficient typing.\n\nHOME ROW (US QWERTY):\n  - Left Hand: Place fingers on A (Pinky), S (Ring), D (Middle), F (Index).\n  - Right Hand: Place fingers on J (Index), K (Middle), L (Ring), ; (Semicolon - Pinky).\n  - Thumbs: Rest lightly on the Spacebar.\n\nEXERCISE FOCUS (QWERTY Row & Semicolon Key):\n  Practice reaching these keys from the home row.\n  Left Hand:\n    - Pinky (LP): 'Q'\n    - Ring (LR): 'W'\n    - Middle (LM): 'E'\n    - Index (LI): 'R', 'T'\n\n  Right Hand:\n    - Index (RI): 'Y', 'U'\n    - Middle (RM): 'I'\n    - Ring (RR): 'O'\n    - Pinky (RP): 'P', ';' (Semicolon key)\n\n",
-        'hand_guide_text_tips': '\nGENERAL TIPS:\n  - Keep wrists straight.\n  - Use light, quick strokes.\n  - Return fingers to home row.\n  - Accuracy first, then speed.\n',
+        'hand_guide_title': 'US QWERTY Hand Positioning Guide', 
+
+        
+
+        
+
+        
+
+        
+
+        
         'training_prompt_title': 'Training Mode', 'sentence_to_type_label': 'Type this sentence:',
         'your_input_label': 'Your input:', 'timer_label': 'Time:',
         'submit_button': 'Submit', 'cancel_button': 'Cancel', 'ok_button': 'OK', 'report_title': 'Typing Report',
@@ -102,17 +107,17 @@ translations = {
         'load_custom_file_button': 'Carica Frasi (.txt)', 'download_example_button': 'Scarica Esempio .txt',
         'file_loaded_popup': 'Frasi caricate con successo da: {}', 'file_load_error_popup': 'Errore caricamento file: {}',
         'example_file_saved_popup': 'File di esempio salvato in: {}', 'example_file_save_error_popup': 'Errore salvataggio file di esempio.',
-        'hand_guide_title': 'Guida Posizionamento Mani (QWERTY Italiana)', 'key_right_of_p_char_it': 'ù',
-        'focused_ascii_line1': "Focus: Riga QWERTY & Tasto 'ù'", 'left_hand_label': 'Mano Sinistra', 'right_hand_label': 'Mano Destra',
-        'focused_ascii_line2': '(MgS=Mignolo Sinistro, ecc.)', 'legend_title_ascii': 'Legenda Dita:',
-        'pinky_label_ascii': 'Mignolo', 'ring_label_ascii': 'Anulare', 'middle_label_ascii': 'Medio', 'index_label_ascii': 'Indice',
-        'left_label_short_ascii': 'S', 'right_label_short_ascii': 'D',
-        'L_P_key_label_ascii': 'MgS', 'L_R_key_label_ascii': 'AnS', 'L_M_key_label_ascii': 'MdS', 'L_I_key_label_ascii': 'InS',
-        'R_P_key_label_ascii': 'MgD', 'R_R_key_label_ascii': 'AnD', 'R_M_key_label_ascii': 'MdD', 'R_I_key_label_ascii': 'InD',
-        'R_P_Alt_key_label_ascii': 'MgD', 'thumbs_rest_label_ascii': 'I pollici riposano sulla BARRA SPAZIATRICE.',
-        'general_keyboard_layout_label': '\nLayout Tastiera QWERTY Italiana:', 'full_keyboard_ascii_art': it_qwerty_full_keyboard_ascii,
-        'hand_guide_text_intro': "Posizionamento corretto delle mani è fondamentale.\n\nRIGA BASE (QWERTY Italiana):\n  - Sinistra: A(Mignolo), S(Anulare), D(Medio), F(Indice).\n  - Destra: J(Indice), K(Medio), L(Anulare), ò(Mignolo).\n  - Pollici: Sulla Barra Spaziatrice.\n\nFOCUS ESERCIZIO (Riga QWERTY & 'ù'):\n  Sinistra:\n    - Mignolo(MgS):'Q'\n    - Anulare(AnS):'W'\n    - Medio(MdS):'E'\n    - Indice(InS):'R','T'\n\n  Destra:\n    - Indice(InD):'Y','U'\n    - Medio(MdD):'I'\n    - Anulare(AnD):'O'\n    - Mignolo(MgD):'P','ù'\n    (Nota: Per ';' usa Shift + ,)\n\n",
-        'hand_guide_text_tips': '\nCONSIGLI GENERALI:\n  - Polsi dritti.\n  - Tocchi leggeri.\n  - Dita sulla riga base.\n  - Precisione prima, velocità poi.',
+        'hand_guide_title': 'Guida Posizionamento Mani (QWERTY Italiana)', 
+
+        
+
+        
+
+        
+
+        
+
+        
         'training_prompt_title': 'Modalità Allenamento', 'sentence_to_type_label': 'Digita questa frase:',
         'your_input_label': 'La tua digitazione:', 'timer_label': 'Tempo:',
         'submit_button': 'Invia', 'cancel_button': 'Annulla', 'ok_button': 'OK', 'report_title': 'Report Dattilografia',
@@ -175,17 +180,17 @@ translations = {
         'invalid_manual_time_popup': 'Tempo inválido.', 'load_custom_file_button': 'Carregar Frases (.txt)', 'download_example_button': 'Baixar Exemplo .txt',
         'file_loaded_popup': 'Frases carregadas: {}', 'file_load_error_popup': 'Erro ao carregar: {}',
         'example_file_saved_popup': 'Exemplo salvo: {}', 'example_file_save_error_popup': 'Erro ao salvar.',
-        'hand_guide_title': 'Guia de Posicionamento (ABNT2)', 'key_right_of_p_char_pt': ';',
-        'focused_ascii_line1': "Foco: Linha QWERTY & Tecla ';'", 'left_hand_label': 'Mão Esquerda', 'right_hand_label': 'Mão Direita',
-        'focused_ascii_line2': '(MnE=Mínimo Esq.)', 'legend_title_ascii': 'Legenda:',
-        'pinky_label_ascii': 'Mínimo', 'ring_label_ascii': 'Anelar', 'middle_label_ascii': 'Médio', 'index_label_ascii': 'Indicador',
-        'left_label_short_ascii': 'E', 'right_label_short_ascii': 'D',
-        'L_P_key_label_ascii': 'MnE', 'L_R_key_label_ascii': 'AnE', 'L_M_key_label_ascii': 'MdE', 'L_I_key_label_ascii': 'InE',
-        'R_P_key_label_ascii': 'MnD', 'R_R_key_label_ascii': 'AnD', 'R_M_key_label_ascii': 'MdD', 'R_I_key_label_ascii': 'InD',
-        'R_P_Alt_key_label_ascii': 'MnD', 'thumbs_rest_label_ascii': 'Polegares no ESPAÇO.',
-        'general_keyboard_layout_label': '\nTeclado ABNT2:', 'full_keyboard_ascii_art': abnt2_full_keyboard_ascii,
-        'hand_guide_text_intro': "Posicionamento correto é crucial para ABNT2.\n\nLINHA BASE (ABNT2):\n  - Esquerda: A(Mínimo), S(Anelar), D(Médio), F(Indicador).\n  - Direita: J(Indicador), K(Médio), L(Anelar), Ç(Mínimo).\n  - Polegares: Espaço.\n\nFOCO (Linha QWERTY & ';'):\n  Esquerda:\n    - Mínimo(MnE):'Q'\n    - Anelar(AnE):'W'\n    - Médio(MdE):'E'\n    - Indicador(InE):'R','T'\n\n  Direita:\n    - Indicador(InD):'Y','U'\n    - Médio(MdD):'I'\n    - Anelar(AnD):'O'\n    - Mínimo(MnD):'P',';'\n\n",
-        'hand_guide_text_tips': '\nDICAS: Pulsos retos. Toques leves. Dedos na base.\n',
+        'hand_guide_title': 'Guia de Posicionamento (ABNT2)', 
+
+        
+
+        
+
+        
+
+        
+
+        
         'training_prompt_title': 'Treinamento', 'sentence_to_type_label': 'Digite:',
         'your_input_label': 'Sua digitação:', 'timer_label': 'Tempo:',
         'submit_button': 'Enviar', 'cancel_button': 'Cancelar', 'ok_button': 'OK', 'report_title': 'Relatório',
@@ -236,7 +241,6 @@ translations = {
     },
 }
 
-
 def get_text(key, lang_code):
     """Devolve o texto da chave no idioma pedido, com dois níveis de proteção.
 
@@ -258,31 +262,3 @@ def get_text(key, lang_code):
         value = f'<{key} NG>'
     return value
 
-
-def get_formatted_focused_ascii(lang_code):
-    """Monta o desenho reduzido do teclado com os nomes dos dedos no idioma ativo.
-
-    A tecla à direita do P muda por layout (';' no US e no ABNT2, 'ù' no italiano),
-    então ela vem do dicionário e não do desenho.
-    """
-    key_right_p_char = get_text(f'key_right_of_p_char_{lang_code}', lang_code) if lang_code in ('en', 'it', 'pt') else ';'
-    return focused_keys_ascii_template.format(
-        line1=get_text('focused_ascii_line1', lang_code),
-        left_hand_label=get_text('left_hand_label', lang_code), right_hand_label=get_text('right_hand_label', lang_code),
-        row_sep_left=get_text('row_sep_left_short', lang_code), row_sep_right=get_text('row_sep_right_short', lang_code),
-        row_sep_left_short=get_text('row_sep_left_short', lang_code), row_sep_right_short=get_text('row_sep_right_short', lang_code),
-        key_right_of_p=key_right_p_char,
-        L_P_key=get_text('L_P_key_label_ascii', lang_code), L_R_key=get_text('L_R_key_label_ascii', lang_code),
-        L_M_key=get_text('L_M_key_label_ascii', lang_code), L_I_key=get_text('L_I_key_label_ascii', lang_code),
-        R_P_key=get_text('R_P_key_label_ascii', lang_code), R_R_key=get_text('R_R_key_label_ascii', lang_code),
-        R_M_key=get_text('R_M_key_label_ascii', lang_code), R_I_key=get_text('R_I_key_label_ascii', lang_code),
-        R_P_Alt_key=get_text('R_P_Alt_key_label_ascii', lang_code),
-        line2=get_text('focused_ascii_line2', lang_code), legend_title=get_text('legend_title_ascii', lang_code),
-        L_P_key_legend=get_text('L_P_key_label_ascii', lang_code), L_R_key_legend=get_text('L_R_key_label_ascii', lang_code),
-        L_M_key_legend=get_text('L_M_key_label_ascii', lang_code), L_I_key_legend=get_text('L_I_key_label_ascii', lang_code),
-        R_P_key_legend=get_text('R_P_key_label_ascii', lang_code), R_R_key_legend=get_text('R_R_key_label_ascii', lang_code),
-        R_M_key_legend=get_text('R_M_key_label_ascii', lang_code), R_I_key_legend=get_text('R_I_key_label_ascii', lang_code),
-        pinky_label=get_text('pinky_label_ascii', lang_code), ring_label=get_text('ring_label_ascii', lang_code),
-        middle_label=get_text('middle_label_ascii', lang_code), index_label=get_text('index_label_ascii', lang_code),
-        left_label_short=get_text('left_label_short_ascii', lang_code), right_label_short=get_text('right_label_short_ascii', lang_code),
-        thumbs_rest_label=get_text('thumbs_rest_label_ascii', lang_code))
