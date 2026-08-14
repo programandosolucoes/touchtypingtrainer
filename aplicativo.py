@@ -33,6 +33,10 @@ class Aplicativo:
         self.janela = None
         self.tela_atual = None
         self.telas = {}
+        # O que o treino livre acabou de produzir, lido pelo relatório dele.
+        self.resultado_livre = None
+        # Como sortear o próximo exercício livre. Quem abre o treino define.
+        self.sortear_livre = None
 
     # --- construção -----------------------------------------------------------
 
@@ -40,7 +44,8 @@ class Aplicativo:
         tema.aplicar(sg)   # antes de criar qualquer elemento
         for classe in (mod_telas.TelaGuia, mod_telas.TelaPrevia,
                        mod_telas.TelaExercicio, mod_telas.TelaRelatorio,
-                       mod_telas.TelaProgresso):
+                       mod_telas.TelaProgresso, mod_telas.TelaLivre,
+                       mod_telas.TelaRelatorioLivre):
             tela = classe(self)
             self.telas[tela.nome] = tela
         colunas = [[tela.coluna()] for tela in self.telas.values()]
@@ -69,6 +74,14 @@ class Aplicativo:
 
     def ir_para(self, nome, **contexto):
         """Mostra uma tela e esconde a anterior. `menu` encerra a janela."""
+        if nome == 'livre_de_novo':
+            # Pseudo-tela: sorteia outro exercício e volta ao treino livre, sem
+            # o usuário passar pelo menu.
+            sorteado = self.sortear_livre() if self.sortear_livre else None
+            if not sorteado:
+                return False
+            frase, limite = sorteado
+            return self.ir_para('livre', alvo=frase, limite_s=limite)
         if nome == 'menu':
             self.tela_atual = None
             return False
@@ -89,10 +102,10 @@ class Aplicativo:
 
     # --- laço -----------------------------------------------------------------
 
-    def rodar(self, tela_inicial):
+    def rodar(self, tela_inicial, **contexto):
         """Abre a janela na tela pedida e roda até voltar ao menu."""
         self._montar()
-        if not self.ir_para(tela_inicial):
+        if not self.ir_para(tela_inicial, **contexto):
             self.janela.close()
             return
         while True:
@@ -121,6 +134,21 @@ def abrir_guia(idioma, arquivo_do_historico):
 def abrir_progresso(idioma, arquivo_do_historico):
     """Evolução e diagnóstico, na mesma janela do resto."""
     Aplicativo(idioma, arquivo_do_historico).rodar('progresso')
+
+
+def abrir_treino_livre(idioma, arquivo_do_historico, sortear):
+    """Treino livre e seu relatório, na mesma janela do resto.
+
+    `sortear` é a função que devolve (frase, limite_em_segundos) — quem sabe as
+    preferências é o menu, não este módulo.
+    """
+    sorteado = sortear()
+    if not sorteado:
+        return
+    app = Aplicativo(idioma, arquivo_do_historico)
+    app.sortear_livre = sortear
+    frase, limite = sorteado
+    app.rodar('livre', alvo=frase, limite_s=limite)
 
 
 def abrir_licao(idioma, arquivo_do_historico, tamanho_da_serie=None, nivel=None):

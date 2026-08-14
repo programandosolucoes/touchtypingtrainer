@@ -4,8 +4,8 @@ Como o programa funciona, em uma passada:
 
 1. A janela principal só escolhe *preferências* (idioma, tamanho da frase, fonte das
    frases, limite de tempo). Ela não treina nada — ao clicar em "Iniciar Treinamento"
-   essas preferências são passadas para `start_training_session`, que abre a janela do
-   exercício em modo modal.
+   essas preferências viram um exercício em `preparar_treino_livre`, mostrado na
+   janela única do `aplicativo.py` — como o Modo Lição.
 2. Durante o exercício, cada caractere da frase-alvo é um elemento `sg.Text` separado
    na tela. É isso que permite pintar letra por letra (cinza = ainda não digitada,
    verde = certa, vermelha = errada) enquanto o usuário digita, sem redesenhar a janela.
@@ -386,200 +386,70 @@ def escolher_frases(length_preference, source_preference, lang_code):
 # Sessão de treino
 # ---------------------------------------------------------------------------
 
-def start_training_session(length_preference, source_preference, time_mode, manual_time_val,
-                           lang_code):
-    """Roda um exercício completo: sorteia a frase, cronometra, corrige e mostra o relatório."""
-    chosen_sentences, erro = escolher_frases(length_preference, source_preference, lang_code)
+def preparar_treino_livre(length_preference, source_preference, time_mode,
+                          manual_time_val, lang_code):
+    """Sorteia a frase e calcula o limite de tempo. Devolve (frase, limite) ou None.
+
+    O exercício em si virou tela (`telas.TelaLivre`): esta função só decide o
+    QUE treinar, e quem mostra é a janela única.
+    """
+    frases, erro = escolher_frases(length_preference, source_preference, lang_code)
     if erro:
         sg.popup_error(erro, keep_on_top=True)
-        return
+        return None
 
-    target_sentence = random.choice(chosen_sentences)
-    target_len = len(target_sentence)
-    # Uma marca por caractere da frase: True = o usuário já errou aqui alguma vez.
-    # Não é zerada quando ele corrige — é justamente o histórico de tropeços.
-    error_committed_at_position = [False] * target_len
-
-    # Tempo-base: quanto levaria digitando no ritmo de aprendizado. O 600.0 é a rede de
-    # segurança para frase vazia ou constante zerada, para não dividir por zero nem dar
-    # um limite de tempo instantâneo.
-    base_time = target_len / CPS_LEARNING if CPS_LEARNING > 0 and target_len > 0 else 600.0
-    if base_time == 0 and target_len > 0:
-        base_time = 600.0
-    max_exercise_time = base_time
+    frase = random.choice(frases)
+    comprimento = len(frase)
+    # Tempo-base: quanto levaria digitando no ritmo de aprendizado. O 600.0 é a
+    # rede de segurança para frase vazia, para não dividir por zero nem dar um
+    # limite instantâneo.
+    base = comprimento / CPS_LEARNING if CPS_LEARNING > 0 and comprimento > 0 else 600.0
+    limite = base
     if time_mode == 'auto_2x':
-        max_exercise_time = base_time * 2
+        limite = base * 2
     elif time_mode == 'auto_3x':
-        max_exercise_time = base_time * 3
+        limite = base * 3
     elif time_mode == 'manual':
         try:
-            current_manual_val = float(manual_time_val)
-            if current_manual_val <= 0:
-                raise ValueError('Time must be positive.')
-            max_exercise_time = current_manual_val
-        except ValueError:
-            # Valor inválido não cancela o treino: avisa e cai no tempo automático
+            valor = float(manual_time_val)
+            if valor <= 0:
+                raise ValueError
+            limite = valor
+        except (TypeError, ValueError):
+            # Valor inválido não cancela o treino: avisa e cai no tempo automático.
             sg.popup(get_text('invalid_manual_time_popup', lang_code), keep_on_top=True)
-            max_exercise_time = base_time
+    return frase, limite
 
-    # Marcos de velocidade para classificar o desempenho no fim
-    time_limit_fast = target_len / CPS_FAST if CPS_FAST > 0 else float('inf')
-    time_limit_faster = target_len / CPS_FASTER if CPS_FASTER > 0 else float('inf')
 
-    # Um sg.Text por caractere: é o que permite colorir letra a letra durante a digitação
-    target_char_elements = [
-        sg.Text(c, key=f'-TARGET_CHAR_{i}-', font=tema.mono(tema.TAMANHO_DESTAQUE, True), pad=(0, 0),
-                text_color=get_text('pending_char_color', lang_code))
-        for i, c in enumerate(target_sentence)]
-    target_display_container = sg.Column([[*target_char_elements]], scrollable=True,
-                                         expand_x=True, background_color='lightgrey',
-                                         pad=(5, 10), key='-TARGET_DISPLAY_CONTAINER-')
-    timer_display = sg.Text(f"{get_text('timer_label', lang_code)} 0.0s / {max_exercise_time:.1f}s",
-                            key='-TIMER_DISPLAY-', font=tema.texto(tema.TAMANHO_APOIO))
-    training_layout = [
-        [sg.Text(get_text('sentence_to_type_label', lang_code)), sg.Push(), timer_display],
-        [target_display_container],
-        [sg.Text(get_text('your_input_label', lang_code))],
-        [sg.InputText(key='-USER_INPUT-', font=tema.mono(tema.TAMANHO_DESTAQUE), expand_x=True, focus=True,
-                      enable_events=True)],
-        [sg.Button(get_text('submit_button', lang_code), key='-SUBMIT-', bind_return_key=True),
-         sg.Button(get_text('cancel_button', lang_code), key='-CANCEL-')],
-    ]
-    training_window = sg.Window(get_text('training_prompt_title', lang_code), training_layout,
-                                modal=True, keep_on_top=True, finalize=True, resizable=True,
-                                size=(800, 220))
-    start_time = time.time()
-    user_typed_sentence_final = ''
-    timed_out = False
-    training_window['-USER_INPUT-'].set_focus()
+def gravar_treino_livre(alvo, duracao, relatorio, tropecos, lang_code, arquivo=None):
+    """Põe o exercício livre no histórico, com modo 'livre'.
 
-    while True:
-        # timeout=100 faz o read() voltar 10x por segundo mesmo sem o usuário digitar:
-        # é o que mantém o cronômetro andando e permite estourar o tempo sozinho.
-        event, values = training_window.read(timeout=100)
-        elapsed_time = time.time() - start_time
-        display_elapsed = min(elapsed_time, max_exercise_time)
-        training_window['-TIMER_DISPLAY-'].update(
-            f"{get_text('timer_label', lang_code)} {display_elapsed:.1f}s / {max_exercise_time:.1f}s")
+    Não conta para a progressão do currículo, mas conta para a evolução ao longo
+    do tempo — é o mesmo arquivo que a tela de progresso lê.
 
-        if not timed_out and elapsed_time >= max_exercise_time:
-            timed_out = True
-            user_typed_sentence_final = values['-USER_INPUT-']
-            break
-        if event == sg.WIN_CLOSED or event == '-CANCEL-':
-            user_typed_sentence_final = values['-USER_INPUT-']
-            break
-        if event == '-USER_INPUT-':
-            # A cada tecla, repinta a frase inteira: barato o suficiente nesse tamanho e
-            # evita ter de rastrear qual posição mudou (colar texto muda várias de uma vez).
-            typed_text = values['-USER_INPUT-']
-            for i, target_char in enumerate(target_sentence):
-                char_elem = training_window[f'-TARGET_CHAR_{i}-']
-                if i < len(typed_text):
-                    if typed_text[i] != target_char:
-                        if not error_committed_at_position[i]:
-                            error_committed_at_position[i] = True
-                        char_elem.update(text_color=get_text('incorrect_char_color', lang_code))
-                    else:
-                        char_elem.update(text_color=get_text('correct_char_color', lang_code))
-                else:
-                    char_elem.update(text_color=get_text('pending_char_color', lang_code))
-        if event == '-SUBMIT-':
-            user_typed_sentence_final = values['-USER_INPUT-']
-            break
-
-    training_window.close()
-    final_elapsed_time = min(elapsed_time, max_exercise_time)
-    final_persistent_errors = sum(error_committed_at_position)
-
-    if timed_out:
-        sg.popup_auto_close(get_text('perf_time_limit_exceeded', lang_code), title='Timeout',
-                            auto_close_duration=3, grab_anywhere=True, keep_on_top=True)
-
-    if user_typed_sentence_final is None:
-        return
-
-    report_data = calculate_accuracy_report(target_sentence, user_typed_sentence_final)
-    acc_thresh = 85          # abaixo disso, precisão vira o problema principal
-    # A ordem importa: tempo estourado e precisão baixa vêm antes da velocidade, porque
-    # não adianta elogiar quem digitou rápido e errado.
-    if timed_out:
-        perf_txt = get_text('perf_time_limit_exceeded', lang_code)
-    elif report_data['accuracy'] < acc_thresh:
-        perf_txt = get_text('perf_focus_accuracy', lang_code)
-    elif final_elapsed_time <= time_limit_fast:
-        perf_txt = get_text('perf_excellent_speed', lang_code)
-    elif final_elapsed_time <= time_limit_faster:
-        perf_txt = get_text('perf_good_speed', lang_code)
-    else:
-        perf_txt = get_text('perf_learning_pace', lang_code)
-
-    perf_color = 'black'
-    if get_text('perf_excellent_speed', lang_code) in perf_txt:
-        perf_color = 'darkgreen'
-    elif get_text('perf_good_speed', lang_code) in perf_txt:
-        perf_color = 'green'
-    elif get_text('perf_focus_accuracy', lang_code) in perf_txt:
-        perf_color = 'darkorange'
-    elif get_text('perf_time_limit_exceeded', lang_code) in perf_txt:
-        perf_color = 'red'
-
-    # O treino livre também entra no histórico, com modo 'livre'. Ele não conta
-    # para a progressão do currículo, mas conta para a evolução ao longo do tempo.
+    `arquivo` é obrigatório na prática: quem chama tem o caminho da sessão. O
+    padrão existe só para uso solto e **não deve** ser usado pela interface —
+    sem ele, um teste gravaria no histórico de verdade do usuário.
+    """
     historico.gravar({
         'quando': datetime.now().astimezone().isoformat(timespec='seconds'),
         'modo': 'livre',
         'nivel': None,
         'idioma': lang_code,
         'layout': layouts.LAYOUT_POR_IDIOMA[lang_code],
-        'alvo': target_sentence,
-        'duracao_s': round(final_elapsed_time, 2),
-        'wpm_bruto': round(metricas.wpm(report_data['typed_length'],
-                                        final_elapsed_time), 2),
-        'wpm_liquido': round(metricas.wpm_liquido(report_data['typed_length'],
-                                                  final_elapsed_time,
-                                                  report_data['errors']), 2),
-        'tropecos': final_persistent_errors,
-        'total_teclas': target_len,
-        # O treino livre lê o campo de texto inteiro a cada tecla, não batida por
-        # batida: não há intervalo por tecla para medir ritmo.
+        'alvo': alvo,
+        'duracao_s': round(duracao, 2),
+        'wpm_bruto': round(metricas.wpm(relatorio['typed_length'], duracao), 2),
+        'wpm_liquido': round(metricas.wpm_liquido(
+            relatorio['typed_length'], duracao, relatorio['errors']), 2),
+        'tropecos': tropecos,
+        'total_teclas': relatorio['target_length'],
+        # O treino livre lê o campo inteiro a cada tecla, não batida por batida:
+        # não há intervalo por tecla para medir ritmo.
         'regularidade': None,
         'aprovado': None,
         'teclas': {},
-    }, caminho_do_historico())
-
-    report_layout = [
-        [sg.Text(get_text('report_title', lang_code), font=tema.texto(tema.TAMANHO_SUBTITULO, True))],
-        [sg.Text(f"{get_text('report_target_sentence', lang_code)} {report_data['target_sentence']}",
-                 font=tema.mono(tema.TAMANHO_APOIO), size=(70, 2))],
-        [sg.Text(f"{get_text('report_your_sentence', lang_code)} {report_data['typed_sentence']}",
-                 font=tema.mono(tema.TAMANHO_APOIO), size=(70, 2))],
-        [sg.HSeparator()],
-        [sg.Text(f"{get_text('report_target_length', lang_code)} {report_data['target_length']}")],
-        [sg.Text(f"{get_text('report_typed_length', lang_code)} {report_data['typed_length']}")],
-        [sg.Text(f"{get_text('report_errors', lang_code)} {report_data['errors']}",
-                 text_color='red' if report_data['errors'] > 0 else 'green')],
-        [sg.Text(f"{get_text('report_total_mistakes_made', lang_code)} {final_persistent_errors}",
-                 text_color='red' if final_persistent_errors > 0 else 'green')],
-        [sg.Text(f"{get_text('report_accuracy', lang_code)} {report_data['accuracy']}%",
-                 text_color='green' if report_data['accuracy'] >= 95
-                 else ('darkorange' if report_data['accuracy'] >= acc_thresh else 'red'))],
-        [sg.Text(f"{get_text('report_time_taken', lang_code)} {final_elapsed_time:.2f}s")],
-        [sg.Text('WPM: {:.1f} / {:.1f}'.format(
-            metricas.wpm(report_data['typed_length'], final_elapsed_time),
-            metricas.wpm_liquido(report_data['typed_length'], final_elapsed_time,
-                                 report_data['errors'])))],
-        [sg.Text(f"{get_text('report_performance_label', lang_code)} {perf_txt}",
-                 font=tema.texto(tema.TAMANHO_CORPO, True), text_color=perf_color)],
-        [sg.Button(get_text('ok_button', lang_code), key='-OK-')],
-    ]
-    report_win = sg.Window(get_text('report_title', lang_code), report_layout, modal=True,
-                           keep_on_top=True, resizable=True, element_justification='center')
-    while True:
-        ev, _ = report_win.read()
-        if ev == sg.WIN_CLOSED or ev == '-OK-':
-            break
-    report_win.close()
+    }, arquivo or caminho_do_historico())
 
 
 # ---------------------------------------------------------------------------
@@ -748,8 +618,17 @@ def main():
                     sg.popup_error(get_text('invalid_manual_time_popup', current_lang),
                                    keep_on_top=True)
                     continue
-            start_training_session(current_length_pref, current_source_pref,
-                                   current_time_limit_mode, manual_time_to_pass, current_lang)
+            # O sorteio vai como função: o relatório pode pedir outro exercício
+            # sem o usuário voltar ao menu.
+            def sortear():
+                return preparar_treino_livre(
+                    current_length_pref, current_source_pref,
+                    current_time_limit_mode, manual_time_to_pass, current_lang)
+            window.close()
+            aplicativo.abrir_treino_livre(current_lang, caminho_do_historico(), sortear)
+            window = create_main_window(current_lang, current_length_pref,
+                                        current_source_pref, current_time_limit_mode,
+                                        current_manual_time_setting)
 
     window.close()
 

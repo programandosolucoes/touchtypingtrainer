@@ -566,3 +566,200 @@ class TelaProgresso(Tela):
         if nome == '-PROG_VOLTAR-':
             return 'menu'
         return None
+
+
+class TelaLivre(Tela):
+    """Treino livre: frase sorteada, campo de texto solto, correção ao vivo.
+
+    Diferente da lição de propósito. Aqui **não há trava**: dá para apagar,
+    corrigir e até colar. É o modo de quem já sabe digitar e quer só medir —
+    quem está aprendendo usa a lição, onde a tecla errada não entra.
+
+    Por isso as duas métricas de erro continuam existindo só aqui: "erros no
+    texto final" mede o produto, "tropeços" mede o caminho.
+    """
+    nome = 'livre'
+    MAXIMO_DE_CARACTERES = 220
+
+    def coluna(self):
+        self.alvos = [
+            sg.Text(' ', key=f'-LIVRE_ALVO_{i}-', pad=(0, 0),
+                    font=tema.mono(tema.TAMANHO_DESTAQUE, True),
+                    text_color=tema.TEXTO_SECUNDARIO)
+            for i in range(self.MAXIMO_DE_CARACTERES)]
+        return sg.Column([
+            [sg.Text('', key='-LIVRE_ROTULO-', font=tema.texto(tema.TAMANHO_CORPO),
+                     text_color=tema.TEXTO), sg.Push(),
+             sg.Text('', key='-LIVRE_TEMPO-', font=tema.texto(tema.TAMANHO_CORPO),
+                     text_color=tema.TEXTO_SECUNDARIO)],
+            [sg.Column([self.alvos], scrollable=True, expand_x=True, pad=(6, 12),
+                       background_color=tema.SUPERFICIE_VARIANTE, key='-LIVRE_FAIXA-')],
+            [sg.Text('', key='-LIVRE_ENTRADA_ROTULO-',
+                     font=tema.texto(tema.TAMANHO_CORPO), text_color=tema.TEXTO)],
+            [sg.InputText(key='-LIVRE_ENTRADA-', font=tema.mono(tema.TAMANHO_DESTAQUE),
+                          expand_x=True, enable_events=True)],
+            [sg.Button('', key='-LIVRE_ENVIAR-', bind_return_key=True,
+                       font=tema.texto(tema.TAMANHO_CORPO),
+                       button_color=(tema.SOBRE_PRIMARIA, tema.PRIMARIA)),
+             sg.Button('', key='-LIVRE_CANCELAR-', font=tema.texto(tema.TAMANHO_CORPO))],
+        ], key=f'-TELA_{self.nome.upper()}-', visible=False,
+            element_justification='center', expand_x=True)
+
+    def preparar(self, alvo=None, limite_s=60.0, **contexto):
+        self.alvo = (alvo or '')[:self.MAXIMO_DE_CARACTERES]
+        self.limite_s = limite_s
+        # Uma marca por caractere: True = já errou aqui. Não volta a False quando
+        # o usuário corrige — é justamente o histórico de tropeços.
+        self.tropecou_em = [False] * len(self.alvo)
+        self.inicio = agora_ms()
+        self.estourou = False
+
+        janela = self.app.janela
+        janela['-LIVRE_ROTULO-'].update(get_text('sentence_to_type_label', self.idioma))
+        janela['-LIVRE_ENTRADA_ROTULO-'].update(get_text('your_input_label', self.idioma))
+        janela['-LIVRE_ENVIAR-'].update(get_text('submit_button', self.idioma))
+        janela['-LIVRE_CANCELAR-'].update(get_text('cancel_button', self.idioma))
+        janela['-LIVRE_ENTRADA-'].update('')
+        for i, elemento in enumerate(self.alvos):
+            if i < len(self.alvo):
+                elemento.update(self.alvo[i], text_color=tema.TEXTO_SECUNDARIO,
+                                visible=True)
+            else:
+                elemento.update(' ', visible=False)
+        janela['-LIVRE_ENTRADA-'].set_focus()
+
+    def evento(self, nome, valores):
+        if nome == '-LIVRE_CANCELAR-':
+            return 'menu'
+        if nome == '-LIVRE_ENVIAR-':
+            return self._encerrar(valores.get('-LIVRE_ENTRADA-', ''))
+        if nome == '-LIVRE_ENTRADA-':
+            self._repintar(valores.get('-LIVRE_ENTRADA-', ''))
+        return None
+
+    def _repintar(self, digitado):
+        """Repinta a frase inteira a cada tecla.
+
+        Barato no tamanho de frase usado, e evita rastrear qual posição mudou —
+        colar texto altera várias de uma vez.
+        """
+        for i, esperado in enumerate(self.alvo):
+            if i < len(digitado):
+                if digitado[i] != esperado:
+                    self.tropecou_em[i] = True
+                    self.alvos[i].update(text_color=tema.ERRO)
+                else:
+                    self.alvos[i].update(text_color=tema.SUCESSO)
+            else:
+                self.alvos[i].update(text_color=tema.TEXTO_SECUNDARIO)
+
+    def tique(self, instante):
+        decorrido = (instante - self.inicio) / 1000.0
+        mostrado = min(decorrido, self.limite_s)
+        self.app.janela['-LIVRE_TEMPO-'].update(
+            f"{get_text('timer_label', self.idioma)} {mostrado:.1f}s / {self.limite_s:.1f}s")
+        if decorrido >= self.limite_s and not self.estourou:
+            self.estourou = True
+            valores = self.app.janela.read(timeout=0)[1] or {}
+            return self._encerrar(valores.get('-LIVRE_ENTRADA-', ''))
+        return None
+
+    def _encerrar(self, digitado):
+        duracao = min((agora_ms() - self.inicio) / 1000.0, self.limite_s)
+        self.app.resultado_livre = {
+            'alvo': self.alvo, 'digitado': digitado, 'duracao_s': duracao,
+            'tropecos': sum(self.tropecou_em), 'estourou': self.estourou,
+        }
+        return 'relatorio_livre'
+
+
+class TelaRelatorioLivre(Tela):
+    """O relatório do treino livre, com as duas medidas de erro.
+
+    A classificação de desempenho segue a ordem herdada do programa original, e
+    ela é deliberada: tempo estourado e precisão baixa vêm ANTES de qualquer
+    elogio à velocidade, porque digitar rápido e errado não é progresso.
+    """
+    nome = 'relatorio_livre'
+    PRECISAO_MINIMA = 85
+
+    def coluna(self):
+        def linha(chave, fonte=None):
+            return [sg.Text('', key=chave, font=fonte or tema.texto(tema.TAMANHO_CORPO),
+                            text_color=tema.TEXTO)]
+        return sg.Column([
+            [sg.Text('', key='-RL_TITULO-', font=tema.texto(tema.TAMANHO_TITULO, True),
+                     text_color=tema.TEXTO)],
+            linha('-RL_ALVO-', tema.mono(tema.TAMANHO_APOIO)),
+            linha('-RL_DIGITADO-', tema.mono(tema.TAMANHO_APOIO)),
+            [sg.HorizontalSeparator()],
+            linha('-RL_ERROS-'), linha('-RL_TROPECOS-'), linha('-RL_PRECISAO-'),
+            linha('-RL_TEMPO-'), linha('-RL_WPM-'),
+            [sg.Text('', key='-RL_DESEMPENHO-',
+                     font=tema.texto(tema.TAMANHO_SUBTITULO, True))],
+            [sg.Button('', key='-RL_OUTRA-',
+                       font=tema.texto(tema.TAMANHO_SUBTITULO, True),
+                       button_color=(tema.SOBRE_PRIMARIA, tema.PRIMARIA)),
+             sg.Button('', key='-RL_MENU-', font=tema.texto(tema.TAMANHO_CORPO))],
+        ], key=f'-TELA_{self.nome.upper()}-', visible=False,
+            element_justification='center', expand_x=True)
+
+    def preparar(self, **contexto):
+        import TouchTypingTrainer as app_mod
+        dados = self.app.resultado_livre
+        alvo, digitado = dados['alvo'], dados['digitado']
+        duracao = dados['duracao_s']
+        relatorio = app_mod.calculate_accuracy_report(alvo, digitado)
+        t = lambda chave: get_text(chave, self.idioma)     # noqa: E731
+
+        wpm = metricas.wpm(relatorio['typed_length'], duracao)
+        wpm_liq = metricas.wpm_liquido(relatorio['typed_length'], duracao,
+                                       relatorio['errors'])
+        janela = self.app.janela
+        janela['-RL_TITULO-'].update(t('report_title'))
+        janela['-RL_ALVO-'].update(f"{t('report_target_sentence')} {alvo}")
+        janela['-RL_DIGITADO-'].update(f"{t('report_your_sentence')} {digitado}")
+        janela['-RL_ERROS-'].update(
+            f"{t('report_errors')} {relatorio['errors']}",
+            text_color=tema.ERRO if relatorio['errors'] else tema.SUCESSO)
+        janela['-RL_TROPECOS-'].update(
+            f"{t('report_total_mistakes_made')} {dados['tropecos']}",
+            text_color=tema.ERRO if dados['tropecos'] else tema.SUCESSO)
+        precisao = relatorio['accuracy']
+        janela['-RL_PRECISAO-'].update(
+            f"{t('report_accuracy')} {precisao}%",
+            text_color=(tema.SUCESSO if precisao >= 95 else
+                        tema.ATENCAO if precisao >= self.PRECISAO_MINIMA else tema.ERRO))
+        janela['-RL_TEMPO-'].update(f"{t('report_time_taken')} {duracao:.2f}s")
+        janela['-RL_WPM-'].update(f'WPM: {wpm:.1f} / {wpm_liq:.1f}')
+
+        texto, cor = self._classificar(dados, relatorio, duracao, len(alvo))
+        janela['-RL_DESEMPENHO-'].update(f"{t('report_performance_label')} {texto}",
+                                         text_color=cor)
+        janela['-RL_OUTRA-'].update(t('licao_proximo'))
+        janela['-RL_MENU-'].update(t('licao_voltar'))
+
+        # O arquivo vem da sessão, não do global do módulo: senão um teste (ou
+        # uma segunda sessão) gravaria no histórico errado.
+        app_mod.gravar_treino_livre(alvo, duracao, relatorio, dados['tropecos'],
+                                    self.idioma, self.app.sessao.arquivo)
+
+    def _classificar(self, dados, relatorio, duracao, comprimento):
+        import TouchTypingTrainer as app_mod
+        t = lambda chave: get_text(chave, self.idioma)     # noqa: E731
+        if dados['estourou']:
+            return t('perf_time_limit_exceeded'), tema.ERRO
+        if relatorio['accuracy'] < self.PRECISAO_MINIMA:
+            return t('perf_focus_accuracy'), tema.ATENCAO
+        if duracao <= comprimento / app_mod.CPS_FAST:
+            return t('perf_excellent_speed'), tema.SUCESSO
+        if duracao <= comprimento / app_mod.CPS_FASTER:
+            return t('perf_good_speed'), tema.SUCESSO
+        return t('perf_learning_pace'), tema.TEXTO
+
+    def evento(self, nome, valores):
+        if nome == '-RL_MENU-':
+            return 'menu'
+        if nome == '-RL_OUTRA-':
+            return 'livre_de_novo'
+        return None

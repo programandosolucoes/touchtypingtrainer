@@ -172,3 +172,64 @@ def test_a_tela_de_progresso_monta_sem_historico(tmp_path):
         assert app.janela['-PROG_RESUMO-'].get()      # mostra o aviso de vazio
     finally:
         app.janela.close()
+
+
+@pytest.fixture
+def app_livre(tmp_path):
+    """O treino livre montado, com uma frase conhecida."""
+    import aplicativo
+    app = aplicativo.Aplicativo('pt', tmp_path / 'progresso.jsonl')
+    app.sortear_livre = lambda: ('casa', 30.0)
+    app._montar()
+    app.ir_para('livre', alvo='casa', limite_s=30.0)
+    yield app
+    app.janela.close()
+
+
+def test_o_treino_livre_mostra_a_frase_alvo(app_livre):
+    assert app_livre.janela['-LIVRE_ALVO_0-'].get() == 'c'
+    assert app_livre.janela['-LIVRE_ALVO_3-'].get() == 'a'
+    # Além do comprimento da frase, os elementos ficam escondidos.
+    assert not app_livre.janela['-LIVRE_ALVO_4-'].visible
+
+
+def test_o_tropeco_do_treino_livre_nao_zera_ao_corrigir(app_livre):
+    """A marca de erro é permanente: é ela que mede o caminho, não o produto."""
+    tela = app_livre.telas['livre']
+    tela.evento('-LIVRE_ENTRADA-', {'-LIVRE_ENTRADA-': 'x'})     # errou o 'c'
+    tela.evento('-LIVRE_ENTRADA-', {'-LIVRE_ENTRADA-': 'c'})     # corrigiu
+    assert tela.tropecou_em[0] is True
+
+
+def test_enviar_leva_ao_relatorio_e_guarda_o_resultado(app_livre):
+    tela = app_livre.telas['livre']
+    proxima = tela.evento('-LIVRE_ENVIAR-', {'-LIVRE_ENTRADA-': 'casa'})
+    assert proxima == 'relatorio_livre'
+    assert app_livre.resultado_livre['alvo'] == 'casa'
+    assert app_livre.resultado_livre['digitado'] == 'casa'
+
+
+def test_o_relatorio_livre_monta_e_grava_no_historico(app_livre, tmp_path):
+    import historico
+    tela = app_livre.telas['livre']
+    tela.evento('-LIVRE_ENTRADA-', {'-LIVRE_ENTRADA-': 'caza'})     # errou o 's'
+    assert tela.evento('-LIVRE_ENVIAR-', {'-LIVRE_ENTRADA-': 'caza'}) == 'relatorio_livre'
+    app_livre.ir_para('relatorio_livre')
+
+    janela = app_livre.janela
+    assert 'caza' in janela['-RL_DIGITADO-'].get()
+    assert janela['-RL_DESEMPENHO-'].get()
+
+    # Grava no arquivo DA SESSÃO. Antes usava o caminho global do módulo, e este
+    # teste escrevia no histórico de verdade do usuário.
+    registros = historico.ler(tmp_path / 'progresso.jsonl')
+    assert registros and registros[-1]['modo'] == 'livre'
+    assert registros[-1]['alvo'] == 'casa'
+
+
+def test_pedir_outro_exercicio_nao_passa_pelo_menu(app_livre):
+    tela_relatorio = app_livre.telas['relatorio_livre']
+    assert tela_relatorio.evento('-RL_OUTRA-', {}) == 'livre_de_novo'
+    # E a pseudo-tela resolve para o treino livre de novo.
+    assert app_livre.ir_para('livre_de_novo') is True
+    assert app_livre.tela_atual.nome == 'livre'
