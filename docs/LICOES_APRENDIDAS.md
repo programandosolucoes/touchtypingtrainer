@@ -83,3 +83,57 @@ o código saiu estão versionados em `original/binarios/`, com md5. É o que per
 a verificação a qualquer momento — e foi comparando os dois que se provou que eles eram o
 mesmo programa com outra biblioteca de GUI.
 → `original/LEIA-ME.md`
+
+## Auto-repeat do X11 desfaz o teste de teclas simultâneas
+
+Segurar uma tecla no Linux gera `KeyRelease` + `KeyPress` repetidos e colados.
+Quem acreditar no `KeyRelease` conclui que o usuário soltou, e o teste de mãos
+pisca sem nunca fechar. A solução é não acreditar num soltar imediatamente: ele
+fica em dúvida por 50 ms, e um novo pressionar da mesma tecla o cancela
+(`teclas_pressionadas.py`).
+
+## Rollover: teclado de membrana não reporta oito teclas
+
+O teste de mãos foi desenhado com **quatro** teclas (uma mão por vez) porque
+teclado comum reporta no máximo ~6 simultâneas e alguns travam antes disso.
+Pedir as oito de uma vez faria o programa culpar o usuário por um limite do
+equipamento dele. `tools/sonda_teclas.py` mede o limite do teclado à mão.
+
+## Retângulo novo no Graph nasce por cima do texto
+
+Repintar uma tecla apagando e redesenhando o retângulo esconde a letra que estava
+por cima. É preciso `tk_canvas.tag_raise(id_do_texto)` depois de redesenhar
+(`teclado_widget.pintar`). Sem isso o teclado vai perdendo as letras conforme se
+digita — defeito que só aparece depois do primeiro acerto.
+
+## `teclas_base` pegava a fatia errada da linha
+
+A linha-base do ABNT2 é `asdfghjklç~]`. Cortar `[5:9]` devolve `h j k l`, e o `h`
+é alcance estendido do indicador, não posição de repouso: o teste de mãos ia
+cobrar a mão inteira deslocada uma tecla para a esquerda. O corte certo é
+`[6:10]`. Nenhum teste de "existe e tem quatro teclas" pegaria isso — só a
+asserção do conteúdo exato.
+
+## Currículo verde não é currículo correto
+
+Os 12 níveis passavam em todos os testes enquanto o nível 9 ("maiúsculas")
+oferecia `;` — que em maiúscula continua `;` — e o nível 11 ("símbolos")
+reapresentava o `ç` do nível 2 e a vírgula do nível 8. Só apareceu ao **imprimir
+o currículo gerado** e ler. Teste de estrutura não substitui olhar o conteúdo.
+
+Cuidado no mesmo lugar: `à è ì ù` do teclado italiano **são** letras e **devem**
+entrar no nível de símbolos — são teclas próprias, nunca ensinadas antes. A
+asserção correta é sobre letra ASCII, não sobre `isalpha()`.
+
+## Chave de tradução montada por f-string escapa de qualquer busca
+
+`get_text(f'licao_faltou_{f}', idioma)` deixa `licao_faltou_tropecos` e as irmãs
+invisíveis para `grep` — elas parecem órfãs numa varredura de código morto. Antes
+de apagar chave "não usada", procure também pelo prefixo.
+
+## pytest não acha os módulos da raiz sem `pythonpath`
+
+Com os testes em `tests/` e os módulos na raiz, o pytest põe só `tests/` no
+`sys.path`. Sem `pythonpath = .` no `pytest.ini`, nenhum `import metricas`
+funciona. O mesmo vale para os scripts de `tools/`, que precisam inserir a raiz no
+`sys.path` à mão.

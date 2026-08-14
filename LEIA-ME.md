@@ -44,6 +44,51 @@ A fonte "Gerado por IA" usa a API pública do **OpenCode Zen** nos modelos com s
 - a chamada roda em thread separada — a janela não congela — e qualquer falha de rede
   apenas mantém o banco offline em uso.
 
+## Modo Lição
+
+Doze níveis, do `asdf` isolado ao texto corrido, feitos para construir memória
+muscular em vez de medir quem já sabe digitar.
+
+**Nenhum software sabe qual dedo você usou** — não existe teclado comum que reporte
+isso. O que o programa faz é cercar o erro por quatro vias:
+
+- **Teste de mãos antes de começar.** O botão só habilita depois de você pousar cada
+  mão na linha-base e pressionar **as quatro teclas ao mesmo tempo**. Quatro teclas
+  simultâneas provam que a mão está na posição — não dá para simular digitando uma de
+  cada vez. É de uma mão por vez porque teclado de membrana comum não reporta oito.
+- **Tecla errada não entra.** O texto não avança, não há backspace e não há como colar.
+  Você repete até acertar.
+- **Teclado desenhado** mostra a próxima tecla acesa e o dedo correspondente na mão,
+  na mesma cor — é o que dispensa olhar para o teclado físico.
+- **Ritmo picotado reprova**, mesmo com 100% de acerto: pausa longa antes de uma tecla
+  é o sinal de quem procurou a tecla com o olho.
+
+Só passa de nível com no máximo 3% de tropeços, o WPM da meta e ritmo regular, **em
+dois exercícios seguidos** — um acerto isolado pode ser sorte. Reprovar não pune: o
+relatório diz qual dos quatro critérios faltou e você repete o nível.
+
+| # | nível | teclas novas | meta |
+|---|---|---|---|
+| 1-3 | linha-base | `asdf`, `jkl`+`;`/`ç`/`ò`, espaço | 10-12 WPM |
+| 4-8 | resto das letras | `gh`, linha de cima, linha de baixo | 14-22 WPM |
+| 9-11 | maiúsculas, números, símbolos | Shift, `1`-`0`, acentuação do layout | 25-30 WPM |
+| 12 | texto corrido | banco interno, arquivo do usuário e IA | 35 WPM |
+
+O progresso fica em `dados/progresso.jsonl`, **ao lado do executável** — copiou a
+pasta para o pendrive, levou o histórico junto. Se essa pasta for somente-leitura, cai
+para a pasta do usuário e o programa avisa.
+
+## Rodando os testes
+
+```bash
+.venv/bin/python -m pip install -r requirements-dev.txt
+.venv/bin/python -m pytest tests/ -v
+```
+
+São 148 testes cobrindo os módulos sem GUI e, quando há servidor gráfico, também o
+teclado e as mãos desenhados — consultando o Canvas do Tk de verdade. Sem `DISPLAY`,
+os testes de tela são pulados em vez de falhar.
+
 ## Rodando a partir do código
 
 ```bash
@@ -84,9 +129,17 @@ chamadas seguidas; o aplicativo distribuído continua anônimo.
 
 | arquivo | papel |
 |---|---|
-| `TouchTypingTrainer.py` | aplicativo: janelas, sessão de treino, relatório |
+| `TouchTypingTrainer.py` | aplicativo: menu, sessão de treino livre, relatório |
 | `i18n.py` | todos os textos nos três idiomas + `get_text` |
-| `keyboards.py` | desenhos ASCII dos teclados (ABNT2, US, IT) |
+| `metricas.py` | WPM, tropeços e regularidade do ritmo (sem GUI) |
+| `historico.py` | onde o progresso mora e como é lido/gravado (sem GUI) |
+| `layouts.py` | os três teclados e o **mapa tecla→dedo** (sem GUI) |
+| `licoes.py` | currículo de 12 níveis, gerador e critério (sem GUI) |
+| `teclas_pressionadas.py` | quais teclas estão seguradas, apesar do auto-repeat |
+| `teclado_widget.py` | teclado desenhado no Canvas, com cor por dedo |
+| `maos_widget.py` | as duas mãos desenhadas, dedo da vez aceso |
+| `modo_licao.py` | tela prévia com teste de mãos e exercício travado |
+| `tests/` | suíte pytest — 148 testes |
 | `ai_exercises.py` | cliente da API anônima + cache local |
 | `sentences_ai.py` | banco de frases gerado por IA (offline, embutido) |
 | `gui_backend.py` | escolhe FreeSimpleGUI ou PySimpleGUI conforme a edição |

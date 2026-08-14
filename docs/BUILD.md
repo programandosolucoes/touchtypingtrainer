@@ -98,3 +98,38 @@ O `.exe` trial original usava PySimpleGUI 5.0.10. A série 5 foi retirada do PyP
 `requirements-trial.txt` pede `PySimpleGUI>=6.0` em vez da versão exata do original.
 
 A edição free continua exatamente na mesma versão do binário original: FreeSimpleGUI 5.1.0.
+
+## Verificação antes de empacotar
+
+A lógica é coberta por `pytest`; o comportamento das telas com o usuário digitando,
+não. Antes de gerar binário:
+
+```bash
+.venv/bin/python -m pytest tests/ -v          # 148 testes, tudo verde
+.venv/bin/python tools/ver_teclado.py         # os três layouts, a olho
+```
+
+E o roteiro que só o humano faz, porque depende de mão em teclado:
+
+1. `.venv/bin/python tools/sonda_teclas.py` — mede quantas teclas simultâneas o
+   teclado reporta. **Rodar num teclado de membrana barato, não só no bom**: é onde
+   o limite de rollover aparece.
+2. `.venv/bin/python TouchTypingTrainer.py` → **Modo Lição**:
+   - o botão "Começar" nasce desabilitado;
+   - segurar `asdf` e depois `jkl`+quarta tecla habilita;
+   - segurar uma tecla por 3 segundos **não** faz o passo voltar (auto-repeat);
+   - no exercício: tecla errada não avança o texto, `Ctrl+V` não cola, Backspace não
+     apaga;
+   - o teclado desenhado acende a próxima tecla e o dedo certo na mão.
+3. Conferir que `dados/progresso.jsonl` ganhou uma linha por exercício, nos dois
+   modos (lição e treino livre).
+
+Há ainda um teste de fumaça que só prova que nenhuma janela estoura ao montar — não
+clica nem digita nada:
+
+```bash
+for j in menu guia previa exercicio relatorio; do
+  timeout -s KILL 6 .venv/bin/python tools/fumaca_janelas.py $j 2>&1 | grep -q Traceback \
+    && echo "FALHOU $j" || echo "ok $j"
+done
+```

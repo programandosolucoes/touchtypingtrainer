@@ -130,3 +130,60 @@ clientes avaliarem; a free é a completa.
 O aplicativo usa **apenas a biblioteca padrão** além da GUI: `urllib` para a chamada de
 IA, `json`, `threading`, `ssl`, `random`, `time`, `os`, `re`. Nada de `requests`. Isso
 mantém o executável pequeno e evita arrastar `certifi` e derivados para dentro do pacote.
+
+---
+
+# Modo Lição
+
+## O limite físico, declarado
+
+**Nenhum teclado comum reporta qual dedo pressionou a tecla.** Não existe API para
+isso. O programa cerca o comportamento errado por vias indiretas: restringir o
+conjunto de teclas do nível, ler o padrão do erro (alvo `j`, digitado `k` = dedo
+médio no lugar do indicador) e ler o ritmo. A única verificação direta é o teste de
+mãos, que exige quatro teclas pressionadas ao mesmo tempo.
+
+## Por que JSON Lines e não SQLite
+
+Com um usuário, sem escrita concorrente e com histórico na casa dos poucos megabytes,
+o SQLite cobraria migração de esquema a cada campo novo sem entregar nada
+perceptível. O JSONL acrescenta linha — queda de energia não corrompe o que já estava
+gravado —, aceita campo novo sem migração e abre no editor de texto.
+
+O que se perde, e é aceito: consulta indexada. Quem quiser progresso agregado lê o
+arquivo inteiro. Se um dia incomodar, o caminho é gerar um resumo, não trocar de banco.
+
+## Por que a regularidade usa mediana e não média
+
+O índice conta quantos intervalos entre teclas passam de 3× o intervalo típico — o
+sinal de quem parou para procurar a tecla com o olho. Se o "típico" fosse a média, uma
+única pausa longa (o telefone tocou) arrastaria o limiar para cima e mascararia todas
+as outras paradas. Com a mediana, a pausa isolada é um ponto fora da curva e o resto
+do ritmo continua sendo medido.
+
+As três primeiras teclas são descartadas — reação inicial não é hesitação — e com
+menos de 10 intervalos válidos o índice fica indefinido em vez de chutar.
+
+## Por que o teste de mãos é de quatro teclas e não de oito
+
+Pedir `asdf`+`jkl;` de uma vez seria prova mais forte. Só que teclado de membrana
+comum reporta no máximo ~6 teclas simultâneas: o programa culparia o usuário por um
+limite do equipamento. Uma mão por vez passa em praticamente qualquer teclado e
+continua impossível de simular digitando uma tecla de cada vez.
+
+## Por que a lição não usa campo de texto
+
+A entrada é dirigida por evento de tecla (`return_keyboard_events` + `bind`), não por
+`sg.InputText`. Isso elimina de graça o colar — que no treino livre daria 100% de
+precisão — e o backspace, já que caractere errado nunca entra.
+
+Consequência: na lição "erros no texto final" é sempre zero, por construção. Por isso
+a nota da lição é **tropeço por tecla**, e o relatório da lição não exibe a métrica de
+texto final — anunciar 100% ali não significaria nada.
+
+## Por que o teclado é desenhado e não é imagem
+
+Cada tecla muda de cor individualmente durante a digitação; imagem estática exigiria
+uma por estado. O `sg.Graph` também reescala com a janela. As mãos seguem o mesmo
+princípio: em coordenadas lógicas fixas, o Canvas reescala sozinho, e destacar um dedo
+é trocar um preenchimento em vez de trocar de arquivo.

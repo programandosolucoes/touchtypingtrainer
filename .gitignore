@@ -7,3 +7,6 @@ build/
 tools/frases_ia.json
 tools/*.log
 dist_win/
+# Progresso do Modo Lição: é dado do usuário, não do projeto.
+dados/
+.pytest_cache/
