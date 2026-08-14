@@ -1,1 +1,5 @@
 FreeSimpleGUI==5.1.0
+# Rasteriza teclado e mãos com antialiasing. O Canvas do Tk não antialiasa no
+# X11 — curvas e cantos arredondados saem serrilhados —, e é essa biblioteca que
+# entrega a qualidade de imagem que o Canvas não dá. Ver `rasterizador.py`.
+Pillow>=11.0

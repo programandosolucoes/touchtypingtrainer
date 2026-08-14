@@ -133,3 +133,24 @@ for j in menu guia previa exercicio relatorio; do
     && echo "FALHOU $j" || echo "ok $j"
 done
 ```
+
+
+## Requisitos do ambiente de empacotamento
+
+Duas coisas que o binário herda de quem o gerou, e que por isso precisam estar
+certas **na máquina do build**, não só na do usuário:
+
+1. **Tk com Xft.** O PyInstaller embute o Tcl/Tk do Python que rodou o build. Um
+   Python "standalone" (o do `uv`, por exemplo) traz Tk sem Xft, e o executável
+   sai com fonte bitmap para todo mundo. Use um venv sobre o Python do sistema
+   com `python3-tk` instalado. Confira antes de empacotar:
+
+   ```bash
+   .venv/bin/python -c "import tema, tkinter; tkinter.Tk().withdraw(); print(tema.diagnostico())"
+   ```
+
+   `{'xft': True, ...}` é o que se espera. Com `False`, pare e conserte o
+   interpretador — nenhuma mudança de código melhora a fonte.
+
+2. **Pillow.** Entra no pacote e é dependência de execução: é ela que rasteriza o
+   teclado e as mãos com antialiasing.

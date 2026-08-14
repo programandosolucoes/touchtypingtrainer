@@ -27,8 +27,8 @@ enquanto a edição free é a completa, sem cadastro.
   ×2, ×3, ou manual em segundos.
 - **Classificação de desempenho** comparando com 4 c/s (excelente) e 2,5 c/s (bom) —
   precisão abaixo de 85% tem prioridade sobre velocidade na classificação.
-- **Guia de posicionamento das mãos** com desenho ASCII do teclado do idioma escolhido
-  (ABNT2, US QWERTY ou QWERTY italiano) e legenda de qual dedo usa qual tecla.
+- **Guia de posicionamento das mãos** com o teclado do idioma escolhido (ABNT2, US
+  QWERTY ou QWERTY italiano) desenhado e colorido por dedo, ao lado das duas mãos.
 - **Três fontes de frases**: internas, arquivo `.txt` do usuário, ou **geradas por IA**.
 
 ## Exercícios gerados por IA
@@ -74,6 +74,22 @@ relatório diz qual dos quatro critérios faltou e você repete o nível.
 | 9-11 | maiúsculas, números, símbolos | Shift, `1`-`0`, acentuação do layout | 25-30 WPM |
 | 12 | texto corrido | banco interno, arquivo do usuário e IA | 35 WPM |
 
+### Séries e escolha de nível
+
+No menu você define **quantos exercícios seguidos** quer fazer (1, 3, 5 ou 10) e **em
+que nível treinar**. O seletor lista só os níveis já liberados: revisar o que passou
+sim, pular adiante não — senão o portão de progressão deixa de existir.
+
+No fim de cada exercício o relatório oferece **Repetir** (o mesmo texto, mesma semente
+— para consertar exatamente a sequência que saiu errada) ou **Próximo**.
+
+### Tudo numa janela só
+
+O Modo Lição inteiro — tela prévia, exercício e relatório — acontece numa janela de
+tamanho fixo, trocando o conteúdo da mesma área. Nada de janela nova a cada etapa:
+cada uma roubaria o foco do teclado e obrigaria a tirar as mãos da linha-base, que é
+justamente o hábito que o programa existe para desfazer.
+
 O progresso fica em `dados/progresso.jsonl`, **ao lado do executável** — copiou a
 pasta para o pendrive, levou o histórico junto. Se essa pasta for somente-leitura, cai
 para a pasta do usuário e o programa avisa.
@@ -85,9 +101,10 @@ para a pasta do usuário e o programa avisa.
 .venv/bin/python -m pytest tests/ -v
 ```
 
-São 148 testes cobrindo os módulos sem GUI e, quando há servidor gráfico, também o
-teclado e as mãos desenhados — consultando o Canvas do Tk de verdade. Sem `DISPLAY`,
-os testes de tela são pulados em vez de falhar.
+São 221 testes cobrindo os módulos sem GUI e, quando há servidor gráfico, também o
+teclado e as mãos desenhados. Alguns leem a **cor real dos widgets na janela montada**
+para provar que o texto ficou legível — paleta correta não garante tela legível. Sem
+`DISPLAY`, os testes de tela são pulados em vez de falhar.
 
 ## Rodando a partir do código
 
@@ -97,7 +114,18 @@ pip install -r requirements-free.txt      # ou requirements-trial.txt
 python TouchTypingTrainer.py
 ```
 
-Requer Python 3.13+ **com tkinter** (`python3-tk` no Debian/Ubuntu).
+Requer Python 3.13+ **com tkinter compilado com Xft** — no Debian/Ubuntu,
+`sudo apt install python3-tk` sobre o Python do sistema.
+
+⚠️ O Python "standalone" (o que o `uv` instala, por exemplo) empacota um Tk **sem
+Xft**: ele não enxerga o fontconfig, cai numa fonte bitmap e a letra fica feia — no
+seu computador e dentro do executável que você distribuir. Para conferir:
+
+```bash
+python -c "from tkinter import font as f; import tkinter; tkinter.Tk().withdraw(); print(len(f.families()))"
+```
+
+Menos de ~50 famílias significa Tk sem Xft. Com Xft passam de 200.
 
 ## Gerando os binários
 
@@ -131,6 +159,11 @@ chamadas seguidas; o aplicativo distribuído continua anônimo.
 |---|---|
 | `TouchTypingTrainer.py` | aplicativo: menu, sessão de treino livre, relatório |
 | `i18n.py` | todos os textos nos três idiomas + `get_text` |
+| `tema.py` | fonte, paleta e escala tipográfica — um lugar só (sem GUI) |
+| `aplicativo.py` | a janela única e o laço que troca de tela |
+| `telas.py` | as telas do Modo Lição, como colunas da mesma janela |
+| `sessao.py` | a série de exercícios e o nível em treino (sem GUI) |
+| `rasterizador.py` | desenha teclado e mãos com antialiasing (sem GUI) |
 | `metricas.py` | WPM, tropeços e regularidade do ritmo (sem GUI) |
 | `historico.py` | onde o progresso mora e como é lido/gravado (sem GUI) |
 | `layouts.py` | os três teclados e o **mapa tecla→dedo** (sem GUI) |
@@ -139,7 +172,7 @@ chamadas seguidas; o aplicativo distribuído continua anônimo.
 | `teclado_widget.py` | teclado desenhado no Canvas, com cor por dedo |
 | `maos_widget.py` | as duas mãos desenhadas, dedo da vez aceso |
 | `modo_licao.py` | tela prévia com teste de mãos e exercício travado |
-| `tests/` | suíte pytest — 148 testes |
+| `tests/` | suíte pytest — 221 testes |
 | `ai_exercises.py` | cliente da API anônima + cache local |
 | `sentences_ai.py` | banco de frases gerado por IA (offline, embutido) |
 | `gui_backend.py` | escolhe FreeSimpleGUI ou PySimpleGUI conforme a edição |

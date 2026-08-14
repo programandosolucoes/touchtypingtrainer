@@ -187,3 +187,47 @@ Cada tecla muda de cor individualmente durante a digitação; imagem estática e
 uma por estado. O `sg.Graph` também reescala com a janela. As mãos seguem o mesmo
 princípio: em coordenadas lógicas fixas, o Canvas reescala sozinho, e destacar um dedo
 é trocar um preenchimento em vez de trocar de arquivo.
+
+
+## Por que uma janela só
+
+Todo o Modo Lição — prévia, exercício e relatório — vive numa `sg.Window` de
+tamanho fixo, e trocar de tela é alternar a visibilidade de `sg.Column`s
+(`aplicativo.py` + `telas.py`).
+
+Não é preferência estética. Cada janela modal que abre rouba o foco do teclado e
+muda o que está sob os olhos; num treinador de digitação isso obriga o aluno a
+tirar as mãos da linha-base para achar o botão da janela nova, que é exatamente o
+hábito a desfazer. Tamanho fixo pelo mesmo motivo: o teclado desenhado fica
+sempre no mesmo ponto da tela.
+
+Consequência estrutural: quem tem laço de eventos é o `Aplicativo`, e as telas só
+respondem (`preparar`, `evento`, `tique`). Isso concentra num lugar só o `bind`
+das teclas, o cronômetro e o roteamento — antes duplicados em cada janela.
+
+## Por que teclado e mãos são imagem, e não desenho no Canvas
+
+O Canvas do Tk **não antialiasa no X11**. Retângulo alinhado ao eixo passa; toda
+curva e todo canto arredondado saem serrilhados. No macOS o Tk desenha via Cocoa,
+que antialiasa — daí a mesma tela parecer boa lá e ruim aqui.
+
+`rasterizador.py` desenha com Pillow em 3× e reduz com LANCZOS, entregando ao Tk
+uma imagem pronta. Custa uma dependência e alguns milissegundos por quadro; como
+o teclado só é redesenhado quando alguma tecla muda de estado, o custo não
+aparece.
+
+## Por que a face da tecla é pálida
+
+Face com a cor saturada do dedo e letra escura em cima dá ~3,6:1 de contraste —
+abaixo dos 4,5:1 do WCAG AA e visivelmente ilegível. A face é pálida (letra a
+14:1) e a cor forte vai para a **borda**, que continua dizendo qual dedo é.
+
+Vale para os estados também: `proxima`, `certa` e `errada` são tons claros, porque
+a letra precisa continuar legível justamente durante o exercício.
+
+## Por que o tema é registrado, e não aplicado elemento a elemento
+
+`tema.aplicar(sg)` registra uma paleta no (Free)SimpleGUI e a ativa. Definir cor
+em cada `sg.Text` funcionaria hoje e quebraria amanhã: qualquer elemento novo
+nasceria com o cinza-ardósia do tema padrão. Foi assim que o aplicativo chegou a
+abrir com texto cinza sobre fundo cinza mesmo com a paleta correta.

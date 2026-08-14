@@ -137,3 +137,66 @@ Com os testes em `tests/` e os módulos na raiz, o pytest põe só `tests/` no
 `sys.path`. Sem `pythonpath = .` no `pytest.ini`, nenhum `import metricas`
 funciona. O mesmo vale para os scripts de `tools/`, que precisam inserir a raiz no
 `sys.path` à mão.
+
+## O Tk do Python "standalone" não tem Xft — e o defeito viaja no executável
+
+Sintoma: toda letra do programa feia, sem antialiasing. Causa: o Python
+distribuído pelo `uv` empacota um Tcl/Tk **compilado sem Xft**, e sem Xft o Tk
+não fala com o fontconfig. Pedir `DejaVu Sans` devolve `fixed`, uma fonte
+bitmap; `Helvetica` devolve Nimbus Sans L, um clone dos anos 90.
+
+Como diagnosticar em dez segundos:
+
+```python
+from tkinter import font as tkfont
+print(len(tkfont.families()))                       # ~45 = sem Xft; 200+ = com
+print(tkfont.Font(family='DejaVu Sans').actual())   # 'fixed' = sem Xft
+```
+
+O que resolve é o interpretador, não o código: `sudo apt install python3-tk` e um
+venv sobre o Python do sistema. **E isto não é conforto de quem desenvolve**: o
+PyInstaller embute o Tk do Python que gerou o binário, então o cliente recebia a
+mesma letra ruim. `tema.diagnostico()` reporta em que situação a máquina está.
+
+## O Canvas do Tk não faz antialiasing no X11
+
+Retângulo alinhado ao eixo passa; círculo, oval e canto arredondado saem
+serrilhados. No macOS o Tk desenha via Cocoa, que antialiasa — daí a mesma tela
+parecer boa lá e ruim aqui. Não há configuração que resolva.
+
+A saída foi rasterizar com Pillow em 3× e reduzir com LANCZOS (`rasterizador.py`),
+entregando ao Tk uma imagem pronta. O teste que garante isso conta cores
+distintas na quina de uma tecla: sem antialiasing são duas, com antialiasing são
+muitas.
+
+## Paleta correta não prova tela legível
+
+O aplicativo abriu com fundo cinza-ardósia e texto cinza — ilegível — enquanto
+todos os testes de contraste passavam. Eles mediam a constante da paleta; o que
+chegava à tela era outra coisa, porque `sg.theme()` nunca era chamado na janela
+nova e o tema padrão do FreeSimpleGUI prevalecia.
+
+`tests/test_aparencia_real.py` passou a **ler a cor dos widgets Tk da janela
+montada** (`widget.cget('foreground')` / `('background')`) e calcular o contraste
+sobre o que existe de fato. Nenhum teste sobre constantes substitui isso.
+
+## Contraste não mede se duas cores são distinguíveis
+
+Razão de contraste do WCAG usa só luminância. Roxo `#7b4fbd` e azul `#1a67c4`
+dão 1,02:1 e são obviamente cores diferentes. Para "o olho separa estas duas?" a
+medida é distância perceptual (ΔE em Lab); para "dá para ler texto sobre isto?"
+é a razão de contraste. Usar uma no lugar da outra reprova paleta boa e aprova
+paleta ruim.
+
+## Pintar a face da tecla com a cor forte do dedo deixa a letra ilegível
+
+Letra escura sobre `#1565c0` dá ~3,6:1, abaixo dos 4,5:1 do WCAG AA. A correção
+é a que o Material usa: **face pálida, cor saturada na borda**. A informação de
+dedo continua visível e a letra sobe para 14:1.
+
+## Faltava a barra de espaço no teclado desenhado
+
+O nível 3 do currículo ensina o espaço, mas `layouts.teclas()` só tinha as
+quatro linhas de caractere: o exercício pedia uma tecla que o desenho não sabia
+acender. Só apareceu ao **olhar a imagem gerada** — nenhum teste perguntava
+"existe espaço?". Hoje pergunta.
