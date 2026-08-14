@@ -9,7 +9,7 @@ Cada janela é aberta num processo com tempo limitado, e o processo é MORTO no
 fim; por isso não há "resultado", só ausência de erro.
 
 Rode com:  .venv/bin/python tools/fumaca_janelas.py <qual>
-onde <qual> é: menu | guia | previa | exercicio | relatorio
+onde <qual> é: menu | guia | previa | exercicio | relatorio | progresso | livre
 """
 import pathlib
 import sys
@@ -23,10 +23,11 @@ import licoes  # noqa: E402  (precisa vir depois do sys.path)
 
 
 def _menu():
-    import TouchTypingTrainer as app
-    janela = app.create_main_window('pt', 'mixed', 'ai', 'manual', 60)
-    janela.read(timeout=200)
-    janela.close()
+    import aplicativo
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        aplicativo.Aplicativo('pt', pathlib.Path(d) / 'p.jsonl').rodar('menu')
+
 
 
 def _guia():
@@ -53,8 +54,25 @@ def _relatorio():
 
 
 
+def _progresso():
+    import aplicativo
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        aplicativo.Aplicativo('pt', pathlib.Path(d) / 'p.jsonl').rodar('progresso')
+
+
+def _livre():
+    import aplicativo
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        app = aplicativo.Aplicativo('pt', pathlib.Path(d) / 'p.jsonl')
+        app.sortear_livre = lambda: ('a casa e azul', 60.0)
+        app.rodar('livre', alvo='a casa e azul', limite_s=60.0)
+
+
 JANELAS = {'menu': _menu, 'guia': _guia, 'previa': _previa,
-           'exercicio': _exercicio, 'relatorio': _relatorio}
+           'exercicio': _exercicio, 'relatorio': _relatorio,
+           'progresso': _progresso, 'livre': _livre}
 
 if __name__ == '__main__':
     qual = sys.argv[1] if len(sys.argv) > 1 else 'menu'

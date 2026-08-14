@@ -35,6 +35,8 @@ class Aplicativo:
         self.telas = {}
         # O que o treino livre acabou de produzir, lido pelo relatório dele.
         self.resultado_livre = None
+        # Preenchido quando o usuário troca de idioma; o laço externo relê.
+        self.idioma_pedido = None
         # Como sortear o próximo exercício livre. Quem abre o treino define.
         self.sortear_livre = None
 
@@ -45,7 +47,7 @@ class Aplicativo:
         for classe in (mod_telas.TelaGuia, mod_telas.TelaPrevia,
                        mod_telas.TelaExercicio, mod_telas.TelaRelatorio,
                        mod_telas.TelaProgresso, mod_telas.TelaLivre,
-                       mod_telas.TelaRelatorioLivre):
+                       mod_telas.TelaRelatorioLivre, mod_telas.TelaMenu):
             tela = classe(self)
             self.telas[tela.nome] = tela
         colunas = [[tela.coluna()] for tela in self.telas.values()]
@@ -82,7 +84,14 @@ class Aplicativo:
                 return False
             frase, limite = sorteado
             return self.ir_para('livre', alvo=frase, limite_s=limite)
-        if nome == 'menu':
+        if nome == 'sair':
+            self.tela_atual = None
+            return False
+        if nome.startswith('idioma:'):
+            # Trocar de idioma é a única coisa que reconstrói a janela: os
+            # rótulos mudam de largura e frame do Tk não se redimensiona depois
+            # de criado. Sinaliza para o laço refazer tudo.
+            self.idioma_pedido = nome.split(':', 1)[1]
             self.tela_atual = None
             return False
         for chave, tela in self.telas.items():
@@ -129,6 +138,17 @@ class Aplicativo:
 def abrir_guia(idioma, arquivo_do_historico):
     """Guia de mãos: teclado colorido por dedo, na mesma janela do resto."""
     Aplicativo(idioma, arquivo_do_historico).rodar('guia')
+
+
+def rodar_aplicativo(idioma, arquivo_do_historico):
+    """O programa inteiro numa janela só, do menu ao relatório.
+
+    Devolve o idioma pedido quando o usuário troca de idioma — nesse caso quem
+    chama refaz a janela. É o único caso em que uma janela nova aparece.
+    """
+    app = Aplicativo(idioma, arquivo_do_historico)
+    app.rodar('menu')
+    return app.idioma_pedido
 
 
 def abrir_progresso(idioma, arquivo_do_historico):

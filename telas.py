@@ -763,3 +763,251 @@ class TelaRelatorioLivre(Tela):
         if nome == '-RL_OUTRA-':
             return 'livre_de_novo'
         return None
+
+
+class TelaMenu(Tela):
+    """As preferências e os quatro caminhos do programa.
+
+    Era uma janela própria. Virou tela pelo mesmo motivo das outras: com o menu
+    fora da janela, entrar numa lição fazia sumir uma janela e aparecer outra —
+    que é o que o dono pediu para acabar.
+
+    A lógica de frases, IA e arquivo continua no `TouchTypingTrainer.py`: aqui
+    mora só a tela e o roteamento. Trocar de idioma é a única coisa que ainda
+    reconstrói a janela, porque os rótulos mudam de largura e os frames do Tk não
+    se redimensionam depois de criados.
+    """
+    nome = 'menu'
+
+    def coluna(self):
+        import TouchTypingTrainer as app_mod
+        import sessao as mod_sessao
+        idioma = self.idioma
+        t = lambda chave: get_text(chave, idioma)          # noqa: E731
+        fonte = tema.texto(tema.TAMANHO_APOIO)
+
+        idiomas = {'-ENGLISH-': ('en', 'english'), '-ITALIAN-': ('it', 'italian'),
+                   '-PORTUGUESE-': ('pt', 'portuguese')}
+        radios_idioma = [sg.Radio(t(rotulo), 'LANG', key=chave, default=(idioma == codigo),
+                                  enable_events=True, font=fonte)
+                         for chave, (codigo, rotulo) in idiomas.items()]
+
+        fontes = (('BUILTIN', 'source_builtin', 'builtin'),
+                  ('CUSTOM', 'source_custom', 'custom'), ('AI', 'source_ai', 'ai'))
+        radios_fonte = [sg.Radio(t(rotulo), 'SOURCE', key=f'-SOURCE_{chave}-',
+                                 default=(app_mod.current_source_pref == valor),
+                                 enable_events=True, font=fonte)
+                        for chave, rotulo, valor in fontes]
+
+        radios_tamanho = [sg.Radio(t(f'length_{k.lower()}'), 'LENGTH',
+                                   key=f'-LENGTH_{k}-',
+                                   default=(app_mod.current_length_pref == k.lower()),
+                                   enable_events=True, font=fonte)
+                          for k in ('SHORT', 'LONG', 'MIXED')]
+
+        modos = (('auto_1x', 'time_auto_1x_label'), ('auto_2x', 'time_auto_2x_label'),
+                 ('auto_3x', 'time_auto_3x_label'), ('manual', 'time_manual_label'))
+        radios_tempo = [sg.Radio(t(rotulo), 'TIMEMODE', key=f'-TIME_{modo.upper()}-',
+                                 default=(app_mod.current_time_limit_mode == modo),
+                                 enable_events=True, font=fonte)
+                        for modo, rotulo in modos]
+
+        sessao = mod_sessao.Sessao(idioma, self.app.sessao.arquivo)
+        self._niveis = sessao.niveis_disponiveis()
+        rotulos = [f'{n.numero} — {n.id}' for n in self._niveis]
+
+        return sg.Column([
+            [sg.Text(t('app_title'), font=tema.texto(tema.TAMANHO_TITULO, True),
+                     text_color=tema.TEXTO)],
+            [sg.Text(t('welcome_message'), font=tema.texto(tema.TAMANHO_CORPO),
+                     text_color=tema.TEXTO_SECUNDARIO)],
+            [sg.Frame(t('select_language'), [radios_idioma], font=fonte, expand_x=True)],
+            [sg.Frame(t('sentence_source_label'), [radios_fonte], font=fonte, expand_x=True)],
+            [sg.Frame(t('sentence_length_label'), [radios_tamanho], key='-LENGTH_FRAME-',
+                      visible=(app_mod.current_source_pref == 'builtin'), font=fonte,
+                      expand_x=True)],
+            [sg.Column([[sg.Button(t('load_custom_file_button'), key='-LOAD_CUSTOM_FILE-',
+                                   font=fonte),
+                         sg.Button(t('download_example_button'), key='-DOWNLOAD_EXAMPLE-',
+                                   font=fonte)]],
+                       key='-FILE_OPS-', visible=(app_mod.current_source_pref == 'custom'))],
+            [sg.Column([[sg.Button(t('ai_generate_button'), key='-AI_GENERATE-', font=fonte)],
+                        [sg.Text('', key='-AI_STATUS-', font=fonte,
+                                 text_color=tema.TEXTO_SECUNDARIO)]],
+                       key='-AI_OPS-', visible=(app_mod.current_source_pref == 'ai'),
+                       element_justification='center')],
+            [sg.Frame(t('time_limit_settings_label'), [
+                radios_tempo,
+                [sg.Column([[sg.Text(t('manual_time_seconds_label'), font=fonte),
+                             sg.InputText(str(app_mod.current_manual_time_setting),
+                                          key='-MANUAL_TIME-', size=(6, 1), font=fonte,
+                                          enable_events=True)]],
+                           key='-MANUAL_ROW-',
+                           visible=(app_mod.current_time_limit_mode == 'manual'))]],
+                font=fonte, expand_x=True)],
+            [sg.Frame(t('menu_modo_licao'), [
+                [sg.Text(t('menu_serie_label'), font=fonte),
+                 sg.Combo([str(n) for n in mod_sessao.EXERCICIOS_POR_SERIE],
+                          default_value=str(mod_sessao.PADRAO_DE_SERIE), key='-SERIE-',
+                          readonly=True, size=(5, 1), font=fonte),
+                 sg.Text('   '), sg.Text(t('menu_nivel_label'), font=fonte),
+                 sg.Combo(rotulos, default_value=rotulos[-1], key='-NIVEL-',
+                          readonly=True, size=(26, 1), font=fonte)],
+            ], font=fonte, expand_x=True)],
+            [sg.Button(t('menu_modo_licao'), key='-MODO_LICAO-', expand_x=True,
+                       font=tema.texto(tema.TAMANHO_SUBTITULO, True),
+                       button_color=(tema.SOBRE_PRIMARIA, tema.PRIMARIA))],
+            [sg.Button(t('hand_guide_button'), key='-HAND_GUIDE-', expand_x=True, font=fonte),
+             sg.Button(t('menu_treino_livre'), key='-START_TRAINING-', expand_x=True, font=fonte),
+             sg.Button(t('menu_progresso'), key='-PROGRESSO-', expand_x=True, font=fonte)],
+            [sg.Button(t('exit_button'), key='-EXIT-', expand_x=True, font=fonte,
+                       button_color=(tema.SOBRE_PRIMARIA, tema.ERRO))],
+        ], key=f'-TELA_{self.nome.upper()}-', visible=False,
+            element_justification='center', expand_x=True, pad=(30, 10))
+
+    def preparar(self, **contexto):
+        """Reflete o estado corrente das preferências e recarrega o seletor."""
+        import TouchTypingTrainer as app_mod
+        janela = self.app.janela
+        total = len(app_mod.ai_sentences_all)
+        janela['-AI_STATUS-'].update(
+            get_text('ai_status_available', self.idioma).format(total) if total
+            else get_text('ai_no_sentences', self.idioma))
+        self.app.sessao.recarregar()
+
+    def evento(self, nome, valores):
+        import TouchTypingTrainer as app_mod
+        janela = self.app.janela
+
+        if nome in (sg.WIN_CLOSED, '-EXIT-'):
+            return 'sair'
+
+        # --- troca de idioma: única coisa que ainda reconstrói a janela ---
+        for chave, codigo in (('-ENGLISH-', 'en'), ('-ITALIAN-', 'it'),
+                              ('-PORTUGUESE-', 'pt')):
+            if nome == chave and self.app.idioma != codigo:
+                app_mod.current_lang = codigo
+                app_mod.carregar_frases_ia(codigo)
+                return f'idioma:{codigo}'
+
+        # --- fonte das frases: mostra e esconde os controles de cada modo ---
+        for chave, valor in (('-SOURCE_BUILTIN-', 'builtin'),
+                             ('-SOURCE_CUSTOM-', 'custom'), ('-SOURCE_AI-', 'ai')):
+            if nome == chave and app_mod.current_source_pref != valor:
+                app_mod.current_source_pref = valor
+                janela['-FILE_OPS-'].update(visible=(valor == 'custom'))
+                janela['-AI_OPS-'].update(visible=(valor == 'ai'))
+                janela['-LENGTH_FRAME-'].update(visible=(valor == 'builtin'))
+
+        for chave, valor in (('-LENGTH_SHORT-', 'short'), ('-LENGTH_LONG-', 'long'),
+                             ('-LENGTH_MIXED-', 'mixed')):
+            if nome == chave:
+                app_mod.current_length_pref = valor
+
+        for chave, modo in (('-TIME_AUTO_1X-', 'auto_1x'), ('-TIME_AUTO_2X-', 'auto_2x'),
+                            ('-TIME_AUTO_3X-', 'auto_3x'), ('-TIME_MANUAL-', 'manual')):
+            if nome == chave and app_mod.current_time_limit_mode != modo:
+                app_mod.current_time_limit_mode = modo
+                janela['-MANUAL_ROW-'].update(visible=(modo == 'manual'))
+
+        if nome == '-MANUAL_TIME-':
+            # Campo vazio é tolerado (ainda digitando); o resto volta ao último
+            # valor válido em vez de deixar o treino começar com lixo.
+            texto = valores.get('-MANUAL_TIME-', '')
+            try:
+                valor = int(texto)
+                if valor > 0:
+                    app_mod.current_manual_time_setting = valor
+                else:
+                    janela['-MANUAL_TIME-'].update(str(app_mod.current_manual_time_setting))
+            except ValueError:
+                if texto != '':
+                    janela['-MANUAL_TIME-'].update(str(app_mod.current_manual_time_setting))
+
+        # --- geração por IA, em thread, com o resultado voltando como evento ---
+        if nome == '-AI_GENERATE-' and not getattr(self, '_gerando', False):
+            self._gerando = True
+            janela['-AI_GENERATE-'].update(disabled=True)
+            janela['-AI_STATUS-'].update(get_text('ai_generating_popup', self.idioma))
+            import ai_exercises
+            ai_exercises.gerar_em_thread(
+                self.idioma,
+                lambda frases, erro: janela.write_event_value('-AI_DONE-', (frases, erro)))
+        elif nome == '-AI_DONE-':
+            self._gerando = False
+            frases, erro = valores['-AI_DONE-']
+            janela['-AI_GENERATE-'].update(disabled=False)
+            if frases:
+                novas = app_mod.registrar_frases_ia(self.idioma, frases)
+                janela['-AI_STATUS-'].update(get_text('ai_status_available', self.idioma)
+                                             .format(len(app_mod.ai_sentences_all)))
+                sg.popup(get_text('ai_generated_popup', self.idioma).format(novas),
+                         keep_on_top=True)
+            else:
+                sg.popup_error(get_text('ai_error_popup', self.idioma).format(erro),
+                               keep_on_top=True)
+
+        # --- arquivo de frases do usuário ---
+        if nome == '-LOAD_CUSTOM_FILE-':
+            caminho = sg.popup_get_file(get_text('load_custom_file_button', self.idioma),
+                                        file_types=(('Text Files', '*.txt'),),
+                                        keep_on_top=True)
+            if caminho and app_mod.load_custom_sentences_from_file(caminho, self.idioma):
+                app_mod.current_source_pref = 'custom'
+                janela['-SOURCE_CUSTOM-'].update(value=True)
+                janela['-FILE_OPS-'].update(visible=True)
+                janela['-AI_OPS-'].update(visible=False)
+                janela['-LENGTH_FRAME-'].update(visible=False)
+        elif nome == '-DOWNLOAD_EXAMPLE-':
+            app_mod.download_example_txt_file(self.idioma)
+
+        # --- os quatro caminhos ---
+        if nome == '-HAND_GUIDE-':
+            return 'guia'
+        if nome == '-PROGRESSO-':
+            return 'progresso'
+        if nome == '-MODO_LICAO-':
+            return self._iniciar_licao(valores)
+        if nome == '-START_TRAINING-':
+            return self._iniciar_treino_livre(valores)
+        return None
+
+    def _iniciar_licao(self, valores):
+        import sessao as mod_sessao
+        try:
+            tamanho = int(valores.get('-SERIE-') or mod_sessao.PADRAO_DE_SERIE)
+        except (TypeError, ValueError):
+            tamanho = mod_sessao.PADRAO_DE_SERIE
+        # O rótulo é "N — id"; o número é o que interessa.
+        rotulo = valores.get('-NIVEL-') or ''
+        numero = next((int(p) for p in rotulo.replace('—', ' ').split() if p.isdigit()),
+                      None)
+        if numero:
+            self.app.sessao.escolher_nivel(numero)
+        self.app.sessao.iniciar_serie(tamanho)
+        return 'previa'
+
+    def _iniciar_treino_livre(self, valores):
+        import TouchTypingTrainer as app_mod
+        manual = app_mod.current_manual_time_setting
+        if app_mod.current_time_limit_mode == 'manual':
+            texto = (valores.get('-MANUAL_TIME-') or '').strip()
+            if texto:
+                try:
+                    manual = int(texto)
+                except ValueError:
+                    sg.popup_error(get_text('invalid_manual_time_popup', self.idioma),
+                                   keep_on_top=True)
+                    return None
+            if manual <= 0:
+                sg.popup_error(get_text('invalid_manual_time_popup', self.idioma),
+                               keep_on_top=True)
+                return None
+
+        def sortear():
+            return app_mod.preparar_treino_livre(
+                app_mod.current_length_pref, app_mod.current_source_pref,
+                app_mod.current_time_limit_mode, manual, self.idioma)
+
+        self.app.sortear_livre = sortear
+        return 'livre_de_novo'

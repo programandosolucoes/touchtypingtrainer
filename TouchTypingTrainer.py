@@ -1,20 +1,16 @@
 """TouchTypingTrainer — treinador de digitação com correção caractere a caractere.
 
-Como o programa funciona, em uma passada:
+Este módulo é hoje a **camada de dados e regras** do programa: de onde vêm as
+frases (internas, arquivo do usuário, IA), como o exercício livre é sorteado e
+como o resultado dele é gravado. Ele não desenha mais nada.
 
-1. A janela principal só escolhe *preferências* (idioma, tamanho da frase, fonte das
-   frases, limite de tempo). Ela não treina nada — ao clicar em "Iniciar Treinamento"
-   essas preferências viram um exercício em `preparar_treino_livre`, mostrado na
-   janela única do `aplicativo.py` — como o Modo Lição.
-2. Durante o exercício, cada caractere da frase-alvo é um elemento `sg.Text` separado
-   na tela. É isso que permite pintar letra por letra (cinza = ainda não digitada,
-   verde = certa, vermelha = errada) enquanto o usuário digita, sem redesenhar a janela.
-3. O erro é *permanente*: quando o usuário erra a posição i, `error_committed_at_position[i]`
-   vira True e não volta atrás nem se ele apagar e corrigir. Isso separa duas métricas
-   no relatório — "Erros (texto final)", que olha só o resultado, e "Total de erros
-   cometidos", que mede quantas vezes ele tropeçou no caminho.
-4. A troca de idioma recria a janela inteira (`create_main_window`) em vez de atualizar
-   rótulo por rótulo, porque frames e larguras mudam de tamanho junto com o texto.
+Quem desenha é o `aplicativo.py`: uma janela só, de tamanho fixo, com as telas
+trocando dentro da mesma área (`telas.py`). Janela nova a cada etapa obrigava o
+aluno a tirar as mãos da linha-base para achar o botão — o hábito que o programa
+existe para desfazer.
+
+O único momento em que a janela é reconstruída é a troca de idioma: os rótulos
+mudam de largura e frame do Tk não se redimensiona depois de criado.
 
 Edições: este mesmo código roda como edição **free** (FreeSimpleGUI, completa) ou
 **trial** (PySimpleGUI, que exige registro) — ver `gui_backend.py` e `build.py`.
@@ -123,137 +119,6 @@ def registrar_frases_ia(lang_code, frases):
 # ---------------------------------------------------------------------------
 # Janela principal
 # ---------------------------------------------------------------------------
-
-def create_main_window(lang_for_window, length_pref_for_window, source_pref_for_window,
-                       time_mode_for_window, manual_time_for_window):
-    """Cria a janela de preferências já refletindo o estado atual.
-
-    Recebe o estado por parâmetro (em vez de ler as globais) justamente porque é
-    chamada de novo a cada troca de idioma: quem chama decide qual estado desenhar.
-    """
-    tema.aplicar(sg)
-    font_settings = tema.texto(tema.TAMANHO_APOIO)
-    app_window_title = get_text('app_title', lang_for_window)
-
-    # Idioma: o valor do rádio é a chave de evento, o dicionário mapeia para o código
-    lang_options_map = {'-ENGLISH-': 'en', '-ITALIAN-': 'it', '-PORTUGUESE-': 'pt'}
-    lang_display_name_keys = {'en': 'english', 'it': 'italian', 'pt': 'portuguese'}
-    lang_radios = []
-    for event_key_suffix, short_code in lang_options_map.items():
-        display_name_key = lang_display_name_keys[short_code]
-        lang_radios.append(sg.Radio(get_text(display_name_key, lang_for_window), 'LANG',
-                                    key=event_key_suffix,
-                                    default=(lang_for_window == short_code),
-                                    enable_events=True, font=font_settings))
-    lang_frame = sg.Frame(get_text('select_language', lang_for_window), [lang_radios],
-                          font=font_settings)
-
-    # Fonte das frases: internas, arquivo .txt do usuário, ou geradas por IA
-    fontes = [('BUILTIN', 'source_builtin', 'builtin'),
-              ('CUSTOM', 'source_custom', 'custom'),
-              ('AI', 'source_ai', 'ai')]
-    source_radios = [sg.Radio(get_text(rotulo, lang_for_window), 'SOURCE',
-                              key=f'-SOURCE_{chave}-', default=(source_pref_for_window == valor),
-                              enable_events=True, font=font_settings)
-                     for chave, rotulo, valor in fontes]
-    source_frame = sg.Frame(get_text('sentence_source_label', lang_for_window),
-                            [source_radios], font=font_settings, expand_x=True)
-
-    # Tamanho da frase: só faz sentido para as frases internas, por isso o frame some
-    # quando a fonte é arquivo ou IA (lá o usuário treina com o que tiver).
-    length_radios = [sg.Radio(get_text(f'length_{len_key.lower()}', lang_for_window), 'LENGTH',
-                              key=f'-LENGTH_{len_key.upper()}-',
-                              default=(length_pref_for_window == len_key.lower()),
-                              enable_events=True, font=font_settings)
-                     for len_key in ('SHORT', 'LONG', 'MIXED')]
-    length_frame = sg.Frame(get_text('sentence_length_label', lang_for_window), [length_radios],
-                            key='-LENGTH_FRAME-', visible=(source_pref_for_window == 'builtin'),
-                            font=font_settings, expand_x=True)
-
-    # Botões de arquivo (carregar .txt / baixar exemplo), visíveis só na fonte "De Arquivo"
-    file_ops_column = sg.Column(
-        [[sg.Button(get_text('load_custom_file_button', lang_for_window), key='-LOAD_CUSTOM_FILE-',
-                    font=font_settings, expand_x=True),
-          sg.Button(get_text('download_example_button', lang_for_window), key='-DOWNLOAD_EXAMPLE-',
-                    font=font_settings, expand_x=True)]],
-        justification='center', key='-FILE_OPS_COLUMN-',
-        visible=(source_pref_for_window == 'custom'), expand_x=True)
-
-    # Botão de geração por IA + contador de frases disponíveis, visíveis na fonte "IA"
-    total_ia = len(ai_sentences_all)
-    status_ia = (get_text('ai_status_available', lang_for_window).format(total_ia) if total_ia
-                 else get_text('ai_no_sentences', lang_for_window))
-    ai_ops_column = sg.Column(
-        [[sg.Button(get_text('ai_generate_button', lang_for_window), key='-AI_GENERATE-',
-                    font=font_settings, expand_x=True)],
-         [sg.Text(status_ia, key='-AI_STATUS-', font=tema.texto(tema.TAMANHO_APOIO), justification='center',
-                  expand_x=True)]],
-        justification='center', key='-AI_OPS_COLUMN-',
-        visible=(source_pref_for_window == 'ai'), expand_x=True)
-
-    # Limite de tempo: automático (1x/2x/3x do tempo-base) ou manual em segundos
-    time_limit_radios_data = [('auto_1x', 'time_auto_1x_label'), ('auto_2x', 'time_auto_2x_label'),
-                              ('auto_3x', 'time_auto_3x_label'), ('manual', 'time_manual_label')]
-    time_limit_radios = [sg.Radio(get_text(label_key, lang_for_window), 'TIMEMODE',
-                                  key=f'-TIME_{mode_key.upper()}-',
-                                  default=(time_mode_for_window == mode_key),
-                                  enable_events=True, font=font_settings)
-                         for mode_key, label_key in time_limit_radios_data]
-    manual_time_input_row = [
-        sg.Text(get_text('manual_time_seconds_label', lang_for_window), font=font_settings),
-        sg.InputText(str(manual_time_for_window), key='-MANUAL_TIME_INPUT-', size=(5, 1),
-                     font=font_settings, enable_events=True)]
-    # A linha dos segundos fica dentro de uma Column própria só para poder ser escondida
-    # inteira quando o modo não é manual.
-    manual_time_container = sg.Column([manual_time_input_row], key='-MANUAL_TIME_ROW-',
-                                      visible=(time_mode_for_window == 'manual'))
-    time_settings_frame = sg.Frame(get_text('time_limit_settings_label', lang_for_window),
-                                   [time_limit_radios, [manual_time_container]],
-                                   font=font_settings, expand_x=True)
-
-    # Configuração da lição: quantos exercícios na série e em que nível treinar.
-    # O seletor lista SÓ os níveis já liberados — revisar o passado é permitido,
-    # pular adiante não, senão o portão de progressão deixa de existir.
-    sessao_atual = mod_sessao.Sessao(lang_for_window, caminho_do_historico())
-    niveis = sessao_atual.niveis_disponiveis()
-    rotulos = [aplicativo.rotulo_do_nivel(n, sessao_atual, lang_for_window)
-               for n in niveis]
-    licao_frame = sg.Frame(get_text('menu_modo_licao', lang_for_window), [
-        [sg.Text(get_text('menu_serie_label', lang_for_window),
-                 font=tema.texto(tema.TAMANHO_APOIO)),
-         sg.Combo([str(n) for n in mod_sessao.EXERCICIOS_POR_SERIE],
-                  default_value=str(mod_sessao.PADRAO_DE_SERIE), key='-SERIE-',
-                  readonly=True, size=(5, 1), font=tema.texto(tema.TAMANHO_APOIO))],
-        [sg.Text(get_text('menu_nivel_label', lang_for_window),
-                 font=tema.texto(tema.TAMANHO_APOIO)),
-         sg.Combo(rotulos, default_value=rotulos[-1], key='-NIVEL-', readonly=True,
-                  size=(38, 1), font=tema.texto(tema.TAMANHO_APOIO))],
-    ], font=tema.texto(tema.TAMANHO_APOIO), expand_x=True)
-
-    layout = [
-        [sg.Text(app_window_title, font=tema.texto(tema.TAMANHO_TITULO, True),
-                 justification='center', expand_x=True, key='-APP_TITLE_DISPLAY-')],
-        [sg.Text(get_text('welcome_message', lang_for_window), font=tema.texto(tema.TAMANHO_CORPO),
-                 justification='center', expand_x=True)],
-        [sg.VPush()], [lang_frame], [source_frame], [length_frame],
-        [file_ops_column], [ai_ops_column], [time_settings_frame], [sg.VPush()],
-        [sg.Button(get_text('hand_guide_button', lang_for_window), key='-HAND_GUIDE-',
-                   expand_x=True, font=tema.texto(tema.TAMANHO_CORPO))],
-        [licao_frame],
-        [sg.Button(get_text('menu_modo_licao', lang_for_window), key='-MODO_LICAO-',
-                   expand_x=True, font=tema.texto(tema.TAMANHO_SUBTITULO, True),
-                   button_color=(tema.SOBRE_PRIMARIA, tema.PRIMARIA))],
-        [sg.Button(get_text('menu_treino_livre', lang_for_window), key='-START_TRAINING-',
-                   expand_x=True, font=tema.texto(tema.TAMANHO_CORPO))],
-        [sg.Button(get_text('menu_progresso', lang_for_window), key='-PROGRESSO-',
-                   expand_x=True, font=tema.texto(tema.TAMANHO_CORPO))],
-        [sg.VPush()],
-        [sg.Button(get_text('exit_button', lang_for_window), key='-EXIT-', expand_x=True,
-                   font=tema.texto(tema.TAMANHO_APOIO), button_color=('white', 'firebrick'))],
-    ]
-    return sg.Window(app_window_title, layout, finalize=True,
-                     element_justification='center', size=(800, 860))
-
 
 def show_hand_positioning_guide():
     """Guia de mãos: o teclado desenhado, colorido por dedo.
@@ -457,180 +322,19 @@ def gravar_treino_livre(alvo, duracao, relatorio, tropecos, lang_code, arquivo=N
 # ---------------------------------------------------------------------------
 
 def main():
-    global current_lang, current_length_pref, current_source_pref
-    global current_time_limit_mode, current_manual_time_setting
+    """Abre o programa e o mantém aberto até o usuário sair.
 
+    O laço existe por um motivo só: trocar de idioma reconstrói a janela, porque
+    os rótulos mudam de largura e frame do Tk não se redimensiona depois de
+    criado. Fora isso, tudo acontece dentro da mesma janela.
+    """
+    global current_lang
     carregar_frases_ia(current_lang)
-    window = create_main_window(current_lang, current_length_pref, current_source_pref,
-                                current_time_limit_mode, current_manual_time_setting)
-    gerando_ia = False       # trava para não disparar duas gerações ao mesmo tempo
-
     while True:
-        event, values = window.read()
-
-        if event == sg.WIN_CLOSED or event == '-EXIT-':
+        idioma_pedido = aplicativo.rodar_aplicativo(current_lang, caminho_do_historico())
+        if not idioma_pedido:
             break
-
-        # --- troca de idioma: recria a janela inteira ---
-        lang_to_recreate_for = None
-        if event == '-ENGLISH-':
-            lang_to_recreate_for = 'en'
-        elif event == '-ITALIAN-':
-            lang_to_recreate_for = 'it'
-        elif event == '-PORTUGUESE-':
-            lang_to_recreate_for = 'pt'
-        if lang_to_recreate_for and current_lang != lang_to_recreate_for:
-            current_lang = lang_to_recreate_for
-            carregar_frases_ia(current_lang)   # o banco da IA é por idioma
-            window.close()
-            window = create_main_window(current_lang, current_length_pref, current_source_pref,
-                                        current_time_limit_mode, current_manual_time_setting)
-            continue
-
-        # --- fonte das frases: mostra/esconde os controles de cada modo ---
-        source_ui_update_needed = False
-        for chave, valor in (('-SOURCE_BUILTIN-', 'builtin'), ('-SOURCE_CUSTOM-', 'custom'),
-                             ('-SOURCE_AI-', 'ai')):
-            if event == chave and current_source_pref != valor:
-                current_source_pref = valor
-                source_ui_update_needed = True
-        if source_ui_update_needed:
-            window['-FILE_OPS_COLUMN-'].update(visible=(current_source_pref == 'custom'))
-            window['-AI_OPS_COLUMN-'].update(visible=(current_source_pref == 'ai'))
-            window['-LENGTH_FRAME-'].update(visible=(current_source_pref == 'builtin'))
-
-        # --- tamanho da frase ---
-        if event == '-LENGTH_SHORT-' and current_length_pref != 'short':
-            current_length_pref = 'short'
-        elif event == '-LENGTH_LONG-' and current_length_pref != 'long':
-            current_length_pref = 'long'
-        elif event == '-LENGTH_MIXED-' and current_length_pref != 'mixed':
-            current_length_pref = 'mixed'
-
-        # --- modo de limite de tempo ---
-        time_mode_ui_update_needed = False
-        newly_selected_time_mode = current_time_limit_mode
-        for chave, modo in (('-TIME_AUTO_1X-', 'auto_1x'), ('-TIME_AUTO_2X-', 'auto_2x'),
-                            ('-TIME_AUTO_3X-', 'auto_3x'), ('-TIME_MANUAL-', 'manual')):
-            if event == chave:
-                newly_selected_time_mode = modo
-        if current_time_limit_mode != newly_selected_time_mode:
-            current_time_limit_mode = newly_selected_time_mode
-            time_mode_ui_update_needed = True
-
-        # Valida o campo de segundos enquanto o usuário digita. Campo vazio é tolerado
-        # (ele ainda está digitando); qualquer outra coisa inválida volta ao último valor.
-        if event == '-MANUAL_TIME_INPUT-':
-            try:
-                val = int(values['-MANUAL_TIME_INPUT-'])
-                if val > 0:
-                    current_manual_time_setting = val
-                else:
-                    window['-MANUAL_TIME_INPUT-'].update(str(current_manual_time_setting))
-            except ValueError:
-                if values['-MANUAL_TIME_INPUT-'] != '':
-                    window['-MANUAL_TIME_INPUT-'].update(str(current_manual_time_setting))
-
-        if time_mode_ui_update_needed:
-            window['-MANUAL_TIME_ROW-'].update(visible=(current_time_limit_mode == 'manual'))
-            if current_time_limit_mode == 'manual':
-                window['-MANUAL_TIME_INPUT-'].update(str(current_manual_time_setting))
-                window['-MANUAL_TIME_INPUT-'].set_focus()
-
-        # --- geração de exercícios por IA ---
-        if event == '-AI_GENERATE-' and not gerando_ia:
-            gerando_ia = True
-            window['-AI_GENERATE-'].update(disabled=True)
-            window['-AI_STATUS-'].update(get_text('ai_generating_popup', current_lang))
-            # A chamada de rede roda em thread; o resultado volta como evento '-AI_DONE-'
-            # para ser tratado aqui no laço, com a janela respondendo o tempo todo.
-            ai_exercises.gerar_em_thread(
-                current_lang,
-                lambda frases, erro: window.write_event_value('-AI_DONE-', (frases, erro)))
-        elif event == '-AI_DONE-':
-            gerando_ia = False
-            frases, erro = values['-AI_DONE-']
-            window['-AI_GENERATE-'].update(disabled=False)
-            if frases:
-                novas = registrar_frases_ia(current_lang, frases)
-                window['-AI_STATUS-'].update(
-                    get_text('ai_status_available', current_lang).format(len(ai_sentences_all)))
-                sg.popup(get_text('ai_generated_popup', current_lang).format(novas),
-                         keep_on_top=True)
-            else:
-                total = len(ai_sentences_all)
-                window['-AI_STATUS-'].update(
-                    get_text('ai_status_available', current_lang).format(total) if total
-                    else get_text('ai_no_sentences', current_lang))
-                sg.popup_error(get_text('ai_error_popup', current_lang).format(erro),
-                               keep_on_top=True)
-
-        # --- botões de ação ---
-        if event == '-LOAD_CUSTOM_FILE-':
-            filepath = sg.popup_get_file(get_text('load_custom_file_button', current_lang),
-                                         title='Select Text File',
-                                         file_types=(('Text Files', '*.txt'),), keep_on_top=True)
-            if filepath and load_custom_sentences_from_file(filepath, current_lang):
-                if current_source_pref != 'custom':
-                    current_source_pref = 'custom'
-                    window['-SOURCE_CUSTOM-'].update(value=True)
-                    window['-FILE_OPS_COLUMN-'].update(visible=True)
-                    window['-AI_OPS_COLUMN-'].update(visible=False)
-                    window['-LENGTH_FRAME-'].update(visible=False)
-        elif event == '-DOWNLOAD_EXAMPLE-':
-            download_example_txt_file(current_lang)
-        elif event == '-HAND_GUIDE-':
-            show_hand_positioning_guide()
-        elif event == '-PROGRESSO-':
-            aplicativo.abrir_progresso(current_lang, caminho_do_historico())
-        elif event == '-MODO_LICAO-':
-            try:
-                tamanho = int(values.get('-SERIE-') or mod_sessao.PADRAO_DE_SERIE)
-            except (TypeError, ValueError):
-                tamanho = mod_sessao.PADRAO_DE_SERIE
-            # O rótulo do nível começa com "Nível N —"; o número é o que interessa.
-            escolhido = None
-            rotulo = values.get('-NIVEL-') or ''
-            for pedaco in rotulo.replace('—', ' ').split():
-                if pedaco.isdigit():
-                    escolhido = int(pedaco)
-                    break
-            window.close()
-            rodar_licao(current_lang, tamanho, escolhido)
-            window = create_main_window(current_lang, current_length_pref,
-                                        current_source_pref, current_time_limit_mode,
-                                        current_manual_time_setting)
-        elif event == '-START_TRAINING-':
-            manual_time_to_pass = current_manual_time_setting
-            if current_time_limit_mode == 'manual':
-                try:
-                    manual_input_val = values['-MANUAL_TIME_INPUT-']
-                    if not manual_input_val.strip():
-                        manual_time_to_pass = current_manual_time_setting
-                    else:
-                        manual_time_to_pass = int(manual_input_val)
-                    if manual_time_to_pass <= 0:
-                        sg.popup_error(get_text('invalid_manual_time_popup', current_lang),
-                                       keep_on_top=True)
-                        continue
-                    current_manual_time_setting = manual_time_to_pass
-                except ValueError:
-                    sg.popup_error(get_text('invalid_manual_time_popup', current_lang),
-                                   keep_on_top=True)
-                    continue
-            # O sorteio vai como função: o relatório pode pedir outro exercício
-            # sem o usuário voltar ao menu.
-            def sortear():
-                return preparar_treino_livre(
-                    current_length_pref, current_source_pref,
-                    current_time_limit_mode, manual_time_to_pass, current_lang)
-            window.close()
-            aplicativo.abrir_treino_livre(current_lang, caminho_do_historico(), sortear)
-            window = create_main_window(current_lang, current_length_pref,
-                                        current_source_pref, current_time_limit_mode,
-                                        current_manual_time_setting)
-
-    window.close()
+        current_lang = idioma_pedido
 
 
 if __name__ == '__main__':
