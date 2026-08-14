@@ -71,6 +71,22 @@ def _caractere_do_evento(janela):
     return keysym_para_caractere(getattr(janela.user_bind_event, 'keysym', ''))
 
 
+def descrever_tecla(caractere, nome_layout, idioma):
+    """"Próxima tecla: J — indicador mão direita".
+
+    A cor sozinha não basta: num teclado inteiro colorido por dedo, saber que a
+    tecla da vez ficou amarela não diz QUAL dedo usar sem o aluno decorar a
+    legenda de cores. O texto diz.
+    """
+    rotulo = get_text('licao_espaco', idioma) if caractere == ' ' else caractere.upper()
+    par = layouts.dedo_de(caractere, nome_layout)
+    if not par:
+        return rotulo
+    mao, dedo = par
+    return get_text('licao_proxima_tecla', idioma).format(
+        rotulo, get_text(f'dedo_{dedo}', idioma), get_text(f'mao_{mao}', idioma))
+
+
 def tela_previa(nivel, nome_layout, idioma, sem_rollover=False, aprovacoes=0):
     """Mostra o nível e cobra o teste de mãos.
 
@@ -104,6 +120,8 @@ def tela_previa(nivel, nome_layout, idioma, sem_rollover=False, aprovacoes=0):
         [sg.HSeparator()],
         [sg.Text('', key='-INSTRUCAO-', font=('Helvetica', 15, 'bold'),
                  expand_x=True, justification='center')],
+        [sg.Text('', key='-DETALHE-', font=('Helvetica', 13),
+                 text_color='#d81b3a', expand_x=True, justification='center')],
         [maos.elemento()],
         [teclado.elemento()],
         [sg.Text('', key='-AVISO-', font=('Helvetica', 10), text_color='darkorange',
@@ -162,6 +180,9 @@ def tela_previa(nivel, nome_layout, idioma, sem_rollover=False, aprovacoes=0):
             # Modo alternativo: uma tecla por vez, na ordem, para teclado sem rollover.
             alvo = esperadas[proxima_sequencial]
             maos.destacar(mao_da_vez, layouts.dedo_de(alvo, nome_layout)[1])
+            # Uma tecla por vez: dá para marcar com o anel e dizer qual dedo é.
+            teclado.marcar(alvo)
+            janela['-DETALHE-'].update(descrever_tecla(alvo, nome_layout, idioma))
             if alvo in ativas:
                 proxima_sequencial += 1
                 if proxima_sequencial >= len(esperadas):
@@ -170,6 +191,11 @@ def tela_previa(nivel, nome_layout, idioma, sem_rollover=False, aprovacoes=0):
                     teclado.limpar_estados()
         else:
             maos.destacar(mao_da_vez, 'indicador')
+            # Aqui são quatro teclas de uma vez: não há "a" tecla para marcar,
+            # então o detalhe lista as quatro em vez de nomear um dedo só.
+            janela['-DETALHE-'].update('   '.join(
+                get_text('licao_espaco', idioma) if c == ' ' else c.upper()
+                for c in esperadas))
             completo = set(esperadas) <= ativas
             if completo:
                 confirmando_desde = confirmando_desde or agora
@@ -188,6 +214,7 @@ def tela_previa(nivel, nome_layout, idioma, sem_rollover=False, aprovacoes=0):
             janela['-INSTRUCAO-'].update(get_text(passos[passo_atual][0], idioma))
         else:
             janela['-INSTRUCAO-'].update(get_text('licao_teste_ok', idioma))
+            janela['-DETALHE-'].update('')
             janela['-COMECAR-'].update(disabled=False)
             teclado.limpar_estados()
             maos.limpar()
@@ -214,6 +241,8 @@ def executar_exercicio(texto, nome_layout, idioma, limite_s):
          sg.Text('', key='-PROGRESSO-', font=('Helvetica', 11))],
         [sg.Column([[*elementos_do_alvo]], scrollable=True, expand_x=True,
                    background_color='#eeeeee', pad=(5, 10))],
+        [sg.Text('', key='-PROXIMA-', font=('Helvetica', 17, 'bold'),
+                 text_color='#d81b3a', expand_x=True, justification='center')],
         [maos.elemento()],
         [teclado.elemento()],
         [sg.Button(get_text('licao_cancelar', idioma), key='-CANCELAR-')],
@@ -232,13 +261,18 @@ def executar_exercicio(texto, nome_layout, idioma, limite_s):
     cancelado = False
 
     def destacar_proxima():
-        """Acende a tecla que vem e o dedo correspondente na mão."""
+        """Acende a tecla que vem, o anel sobre ela, o dedo na mão e o texto."""
         teclado.limpar_estados()
         if posicao >= len(texto):
             maos.limpar()
+            janela['-PROXIMA-'].update('')
             return
         alvo = texto[posicao]
         teclado.pintar(alvo, 'proxima')
+        # O anel é o que se acha sem procurar; a cor sozinha se perde no meio
+        # de um teclado inteiro colorido.
+        teclado.marcar(alvo)
+        janela['-PROXIMA-'].update(descrever_tecla(alvo, nome_layout, idioma))
         par = layouts.dedo_de(alvo, nome_layout)
         if par:
             maos.destacar(par[0], par[1])

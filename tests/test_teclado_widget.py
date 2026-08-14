@@ -90,6 +90,67 @@ def test_pintar_caractere_fora_do_layout_nao_estoura(teclado):
     teclado.pintar('€', 'errada')
 
 
+def test_marcar_desenha_um_anel_sobre_a_tecla(teclado):
+    import teclado_widget
+    teclado.marcar('j')
+    canvas = teclado._grafico.tk_canvas
+    assert canvas.type(teclado._marcador) == 'oval'
+    assert canvas.itemcget(teclado._marcador, 'outline') == teclado_widget.COR_DO_MARCADOR
+    # Sem preenchimento: o anel marca sem esconder a letra por baixo.
+    assert canvas.itemcget(teclado._marcador, 'fill') == ''
+
+
+def test_o_anel_fica_dentro_da_tecla_marcada(teclado):
+    x0, y0, x1, y1 = teclado._retangulos['j']
+    teclado.marcar('j')
+    ax0, ay0, ax1, ay1 = teclado._grafico.tk_canvas.coords(teclado._marcador)
+    assert x0 <= ax0 and ax1 <= x1
+    assert y0 <= ay0 and ay1 <= y1
+
+
+def test_marcar_outra_tecla_tira_o_anel_da_anterior(teclado):
+    teclado.marcar('j')
+    primeiro = teclado._marcador
+    teclado.marcar('k')
+    assert teclado._marcado == 'k'
+    assert primeiro not in teclado._grafico.tk_canvas.find_all()
+
+
+def test_marcar_none_tira_o_anel(teclado):
+    teclado.marcar('j')
+    teclado.marcar(None)
+    assert teclado._marcador is None
+
+
+def test_o_anel_continua_visivel_depois_de_repintar_a_tecla(teclado):
+    # `pintar` apaga e redesenha o retângulo, que nasce por cima de tudo. Sem
+    # devolver o anel ao topo ele some justamente quando o aluno erra a tecla.
+    teclado.marcar('j')
+    teclado.pintar('j', 'errada')
+    ordem = teclado._grafico.tk_canvas.find_all()
+    id_retangulo, _ = teclado._figuras['j']
+    assert teclado._marcador in ordem
+    assert ordem.index(teclado._marcador) > ordem.index(id_retangulo)
+
+
+def test_limpar_estados_tira_o_anel_junto(teclado):
+    teclado.marcar('j')
+    teclado.limpar_estados()
+    assert teclado._marcador is None
+
+
+def test_redimensionar_preserva_o_anel(teclado):
+    teclado.marcar('j')
+    teclado.redimensionar(1200, 360)
+    assert teclado._marcado == 'j'
+    assert teclado._marcador in teclado._grafico.tk_canvas.find_all()
+
+
+def test_marcar_tecla_fora_do_layout_nao_estoura(teclado):
+    teclado.marcar('ç')       # não existe no layout US
+    assert teclado._marcador is None
+
+
 def test_redimensionar_aumenta_as_teclas_e_preserva_o_estado(teclado):
     import teclado_widget
     teclado.pintar('j', 'proxima')

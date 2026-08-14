@@ -19,12 +19,18 @@ CORES_DOS_DEDOS = {
 }
 COR_DE_FUNDO = '#f3f3f3'
 CORES_DOS_ESTADOS = {
-    'proxima': '#ffe066',
+    'proxima': '#ffd21f',
     'certa': '#57b85c',
     'errada': '#d9534f',
 }
 COR_DA_BORDA = '#9a9a9a'
 COR_DO_TEXTO = '#222222'
+
+# O anel que marca a tecla da vez. Cor diferente da do preenchimento de
+# propósito: mudar só o tom do amarelo não salta aos olhos de quem está
+# tentando não olhar para o teclado físico — o contorno vermelho salta.
+COR_DO_MARCADOR = '#d81b3a'
+ESPESSURA_DO_MARCADOR = 4
 
 
 class Teclado:
@@ -39,6 +45,8 @@ class Teclado:
         self._figuras = {}       # caractere -> (id_retangulo, id_texto)
         self._estados = {}       # caractere -> estado atual
         self._retangulos = {}    # cache da geometria no tamanho corrente
+        self._marcador = None    # id do anel sobre a tecla da vez
+        self._marcado = None     # caractere que está com o anel
 
     def elemento(self):
         """O elemento a colocar no layout da janela."""
@@ -54,6 +62,8 @@ class Teclado:
         self._grafico.erase()
         self._figuras.clear()
         self._estados.clear()
+        self._marcador = None
+        self._marcado = None
         self._retangulos = layouts.retangulos(
             self.nome_layout, self.largura_px, self.altura_px)
         tamanho_da_fonte = max(7, int(self.altura_px / 22))
@@ -80,13 +90,41 @@ class Teclado:
         self._grafico.delete_figure(id_retangulo)
         novo = self._grafico.draw_rectangle(
             (x0 + 1, y0 + 1), (x1 - 1, y1 - 1), fill_color=cor, line_color=COR_DA_BORDA)
-        # O retângulo novo nasce por cima do texto; devolver o texto para o topo.
+        # O retângulo novo nasce por cima de tudo; devolver texto e anel ao topo.
         self._grafico.tk_canvas.tag_raise(id_texto)
+        if self._marcador is not None:
+            self._grafico.tk_canvas.tag_raise(self._marcador)
         self._figuras[caractere] = (novo, id_texto)
         self._estados[caractere] = estado
 
+    def marcar(self, caractere):
+        """Põe um anel bem visível sobre a tecla da vez. None tira o anel.
+
+        Existe além da cor porque mudar o preenchimento de uma tecla entre
+        tantas teclas coloridas não salta aos olhos — e quem está aprendendo a
+        não olhar para o teclado físico precisa achar a marca na hora.
+        """
+        caractere = caractere.lower() if caractere else None
+        if self._marcado == caractere:
+            return
+        if self._marcador is not None:
+            self._grafico.delete_figure(self._marcador)
+            self._marcador = None
+        self._marcado = None
+        if caractere is None or caractere not in self._retangulos:
+            return
+        x0, y0, x1, y1 = self._retangulos[caractere]
+        # Círculo inscrito na tecla, sem preenchimento: marca sem esconder a letra.
+        raio = min(x1 - x0, y1 - y0) / 2 - 2
+        centro_x, centro_y = (x0 + x1) / 2, (y0 + y1) / 2
+        self._marcador = self._grafico.draw_oval(
+            (centro_x - raio, centro_y - raio), (centro_x + raio, centro_y + raio),
+            fill_color='', line_color=COR_DO_MARCADOR, line_width=ESPESSURA_DO_MARCADOR)
+        self._marcado = caractere
+
     def limpar_estados(self):
-        """Devolve todas as teclas ao repouso (cor do dedo)."""
+        """Devolve todas as teclas ao repouso (cor do dedo) e tira o anel."""
+        self.marcar(None)
         for caractere in list(self._estados):
             self.pintar(caractere, 'repouso')
 
@@ -99,6 +137,7 @@ class Teclado:
         if (int(largura_px), int(altura_px)) == (int(self.largura_px), int(self.altura_px)):
             return
         estados = dict(self._estados)
+        marcado = self._marcado
         self.largura_px = max(200.0, float(largura_px))
         self.altura_px = max(80.0, float(altura_px))
         self._grafico.set_size((int(self.largura_px), int(self.altura_px)))
@@ -107,3 +146,4 @@ class Teclado:
         for caractere, estado in estados.items():
             if estado != 'repouso':
                 self.pintar(caractere, estado)
+        self.marcar(marcado)

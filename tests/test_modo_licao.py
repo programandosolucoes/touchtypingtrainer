@@ -53,6 +53,38 @@ def test_toda_tecla_dos_tres_layouts_tem_keysym_conhecido():
             assert c.isalnum() or c in nomeados, (nome, c)
 
 
+def test_descrever_tecla_diz_a_tecla_o_dedo_e_a_mao():
+    # A cor sozinha não diz QUAL dedo usar sem decorar a legenda; o texto diz.
+    texto = modo_licao.descrever_tecla('j', 'us', 'pt')
+    assert 'J' in texto
+    assert 'indicador' in texto
+    assert 'direita' in texto
+
+
+def test_descrever_tecla_nomeia_o_espaco_em_vez_de_mostrar_vazio():
+    # Sem isto o aluno leria "Próxima tecla:    — ..." e não entenderia nada.
+    assert 'ESPAÇO' in modo_licao.descrever_tecla(' ', 'us', 'pt')
+    assert 'SPACE' in modo_licao.descrever_tecla(' ', 'us', 'en')
+
+
+def test_descrever_tecla_traduz_dedo_e_mao():
+    assert 'pinky' in modo_licao.descrever_tecla('a', 'us', 'en')
+    assert 'mignolo' in modo_licao.descrever_tecla('a', 'it', 'it')
+
+
+def test_descrever_tecla_fora_do_layout_devolve_so_o_rotulo():
+    assert modo_licao.descrever_tecla('€', 'us', 'pt') == '€'
+
+
+def test_descrever_toda_tecla_dos_tres_layouts_sem_estourar():
+    import layouts
+    for nome in ('abnt2', 'us', 'it'):
+        for tecla in layouts.teclas(nome):
+            for idioma in ('pt', 'en', 'it'):
+                texto = modo_licao.descrever_tecla(tecla.caractere, nome, idioma)
+                assert texto and 'NG' not in texto, (nome, idioma, tecla.caractere)
+
+
 def test_registro_tem_os_campos_que_o_historico_espera():
     nivel = licoes.curriculo('us')[0]
     texto = licoes.gerar_exercicio('us', 1, semente=5)

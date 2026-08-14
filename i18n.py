@@ -32,17 +32,8 @@ translations = {
         'load_custom_file_button': 'Load Sentences (.txt)', 'download_example_button': 'Download Example .txt',
         'file_loaded_popup': 'Sentences loaded from: {}', 'file_load_error_popup': 'Error loading file: {}',
         'example_file_saved_popup': 'Example file saved to: {}', 'example_file_save_error_popup': 'Error saving example file.',
-        'hand_guide_title': 'US QWERTY Hand Positioning Guide', 
+        'hand_guide_title': 'US QWERTY Hand Positioning Guide',
 
-        
-
-        
-
-        
-
-        
-
-        
         'training_prompt_title': 'Training Mode', 'sentence_to_type_label': 'Type this sentence:',
         'your_input_label': 'Your input:', 'timer_label': 'Time:',
         'submit_button': 'Submit', 'cancel_button': 'Cancel', 'ok_button': 'OK', 'report_title': 'Typing Report',
@@ -71,6 +62,11 @@ translations = {
         'licao_teste_ok': 'Hands in position. You may start.',
         'licao_teste_sequencial': 'Your keyboard cannot report four keys at once — that is a hardware limit, not yours. Press them one at a time, in order.',
         'licao_layout_diferente': 'The key you pressed produced "{}", but this level expects one of: {}. Your system keyboard seems to use a different layout.',
+        'licao_proxima_tecla': 'Next key: {}   —   {} {}',
+        'licao_espaco': 'SPACE',
+        'dedo_minimo': 'pinky', 'dedo_anelar': 'ring', 'dedo_medio': 'middle',
+        'dedo_indicador': 'index', 'dedo_polegar': 'thumb',
+        'mao_esquerda': 'left hand', 'mao_direita': 'right hand',
         'licao_comecar': 'Start the exercise',
         'licao_voltar': 'Back',
         'licao_digite': 'Type:',
@@ -107,17 +103,8 @@ translations = {
         'load_custom_file_button': 'Carica Frasi (.txt)', 'download_example_button': 'Scarica Esempio .txt',
         'file_loaded_popup': 'Frasi caricate con successo da: {}', 'file_load_error_popup': 'Errore caricamento file: {}',
         'example_file_saved_popup': 'File di esempio salvato in: {}', 'example_file_save_error_popup': 'Errore salvataggio file di esempio.',
-        'hand_guide_title': 'Guida Posizionamento Mani (QWERTY Italiana)', 
+        'hand_guide_title': 'Guida Posizionamento Mani (QWERTY Italiana)',
 
-        
-
-        
-
-        
-
-        
-
-        
         'training_prompt_title': 'Modalità Allenamento', 'sentence_to_type_label': 'Digita questa frase:',
         'your_input_label': 'La tua digitazione:', 'timer_label': 'Tempo:',
         'submit_button': 'Invia', 'cancel_button': 'Annulla', 'ok_button': 'OK', 'report_title': 'Report Dattilografia',
@@ -145,6 +132,11 @@ translations = {
         'licao_teste_ok': 'Mani in posizione. Puoi iniziare.',
         'licao_teste_sequencial': "La tua tastiera non riesce a segnalare quattro tasti insieme — è un limite dell'hardware, non tuo. Premili uno alla volta, in ordine.",
         'licao_layout_diferente': 'Il tasto premuto ha prodotto "{}", ma questo livello richiede uno di: {}. La tastiera di sistema sembra usare un altro layout.',
+        'licao_proxima_tecla': 'Prossimo tasto: {}   —   {} {}',
+        'licao_espaco': 'SPAZIO',
+        'dedo_minimo': 'mignolo', 'dedo_anelar': 'anulare', 'dedo_medio': 'medio',
+        'dedo_indicador': 'indice', 'dedo_polegar': 'pollice',
+        'mao_esquerda': 'mano sinistra', 'mao_direita': 'mano destra',
         'licao_comecar': "Inizia l'esercizio",
         'licao_voltar': 'Indietro',
         'licao_digite': 'Scrivi:',
@@ -180,17 +172,8 @@ translations = {
         'invalid_manual_time_popup': 'Tempo inválido.', 'load_custom_file_button': 'Carregar Frases (.txt)', 'download_example_button': 'Baixar Exemplo .txt',
         'file_loaded_popup': 'Frases carregadas: {}', 'file_load_error_popup': 'Erro ao carregar: {}',
         'example_file_saved_popup': 'Exemplo salvo: {}', 'example_file_save_error_popup': 'Erro ao salvar.',
-        'hand_guide_title': 'Guia de Posicionamento (ABNT2)', 
+        'hand_guide_title': 'Guia de Posicionamento (ABNT2)',
 
-        
-
-        
-
-        
-
-        
-
-        
         'training_prompt_title': 'Treinamento', 'sentence_to_type_label': 'Digite:',
         'your_input_label': 'Sua digitação:', 'timer_label': 'Tempo:',
         'submit_button': 'Enviar', 'cancel_button': 'Cancelar', 'ok_button': 'OK', 'report_title': 'Relatório',
@@ -217,6 +200,11 @@ translations = {
         'licao_teste_ok': 'Mãos na posição. Pode começar.',
         'licao_teste_sequencial': 'Seu teclado não reporta quatro teclas ao mesmo tempo — é limite do equipamento, não seu. Pressione uma de cada vez, na ordem.',
         'licao_layout_diferente': 'A tecla que você pressionou produziu "{}", mas este nível espera uma destas: {}. O teclado do sistema parece estar noutro layout.',
+        'licao_proxima_tecla': 'Próxima tecla: {}   —   {} {}',
+        'licao_espaco': 'ESPAÇO',
+        'dedo_minimo': 'mínimo', 'dedo_anelar': 'anelar', 'dedo_medio': 'médio',
+        'dedo_indicador': 'indicador', 'dedo_polegar': 'polegar',
+        'mao_esquerda': 'mão esquerda', 'mao_direita': 'mão direita',
         'licao_comecar': 'Começar o exercício',
         'licao_voltar': 'Voltar',
         'licao_digite': 'Digite:',
