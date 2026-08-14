@@ -154,3 +154,36 @@ certas **na máquina do build**, não só na do usuário:
 
 2. **Pillow.** Entra no pacote e é dependência de execução: é ela que rasteriza o
    teclado e as mãos com antialiasing.
+
+
+## Empacotando para Windows sob Wine
+
+Funciona e é o caminho usado hoje. O `build.py` detecta `os.name == 'nt'` sozinho
+e joga o resultado em `dist/windows`.
+
+```bash
+export WINEDEBUG=-all      # sem isto o log vira uma parede de mensagens do Wine
+wine ~/.wine/drive_c/Python313/python.exe -m pip install FreeSimpleGUI Pillow pyinstaller
+wine ~/.wine/drive_c/Python313/python.exe build.py free
+wine ~/.wine/drive_c/Python313/python.exe build.py trial   # precisa de PySimpleGUI
+```
+
+⚠️ **Feche o `.exe` antes de reempacotar.** Um processo Wine ainda vivo segura o
+arquivo e o PyInstaller falha com `PermissionError: [WinError 5] Acesso negado`.
+Note que `pkill -f TouchTypingTrainer.exe` **não** pega
+`TouchTypingTrainer-trial.exe` — o nome não contém aquela string:
+
+```bash
+pkill -9 -f TouchTypingTrainer ; wineserver -k
+```
+
+### O que não dá para verificar sob Wine
+
+A pasta `C:\Windows\Fonts` do prefixo Wine é **vazia** — ele mapeia as fontes do
+Linux por fontconfig. Então o caminho de código que acha o arquivo da fonte no
+Windows (`rasterizador._caminho_da_fonte`) não é exercitado aqui: sob Wine ele
+devolve `None` e o desenho cai na fonte embutida do Pillow.
+
+Num Windows de verdade `segoeui.ttf` existe e o caminho funciona. **Isto precisa
+ser conferido num Windows real** antes de mandar binário para cliente — é o
+mesmo item que já estava pendente para os `.exe`.
