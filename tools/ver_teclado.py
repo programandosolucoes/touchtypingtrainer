@@ -13,14 +13,15 @@ from pathlib import Path
 # tools/ — sem isto, nenhum `import` daqui encontra nada.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import layouts  # noqa: E402  (precisa vir depois do sys.path)
+import layouts  # noqa: E402
+import tema  # noqa: E402  (precisa vir depois do sys.path)
 import teclado_widget  # noqa: E402
 from gui_backend import sg  # noqa: E402
 
 for nome in ('abnt2', 'us', 'it'):
     teclado = teclado_widget.Teclado(nome, 900, 260)
     layout = [
-        [sg.Text(f'Layout: {nome}', font=('Helvetica', 14))],
+        [sg.Text(f'Layout: {nome}', font=tema.texto(tema.TAMANHO_SUBTITULO))],
         [teclado.elemento()],
         [sg.Button('Acender a linha-base', key='-BASE-'),
          sg.Button('Limpar', key='-LIMPAR-'),

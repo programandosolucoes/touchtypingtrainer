@@ -11,6 +11,7 @@ fim; por isso não há "resultado", só ausência de erro.
 Rode com:  .venv/bin/python tools/fumaca_janelas.py <qual>
 onde <qual> é: menu | guia | previa | exercicio | relatorio
 """
+import pathlib
 import sys
 from pathlib import Path
 
@@ -29,33 +30,27 @@ def _menu():
 
 
 def _guia():
-    import TouchTypingTrainer as app
-    app.current_lang = 'pt'
-    app.show_hand_positioning_guide()
+    import aplicativo
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        aplicativo.abrir_guia('pt', pathlib.Path(d) / 'p.jsonl')
 
 
 def _previa():
-    import modo_licao
-    nivel = licoes.curriculo('abnt2')[0]
-    modo_licao.tela_previa(nivel, 'abnt2', 'pt', sem_rollover=False, aprovacoes=1)
+    import aplicativo
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        aplicativo.abrir_licao('pt', pathlib.Path(d) / 'p.jsonl', 3, None)
 
 
 def _exercicio():
-    import modo_licao
-    texto = licoes.gerar_exercicio('abnt2', 3, semente=1, grupos=6)
-    modo_licao.executar_exercicio(texto, 'abnt2', 'pt', 120.0)
+    _previa()      # o exercicio vive na mesma janela agora
 
 
 def _relatorio():
-    import metricas
-    import modo_licao
-    nivel = licoes.curriculo('abnt2')[0]
-    texto = licoes.gerar_exercicio('abnt2', 1, semente=1)
-    resultado = {'batidas': [metricas.Batida(c, c, 200.0) for c in texto],
-                 'duracao_s': 20.0, 'cancelado': False}
-    registro = modo_licao.montar_registro(nivel, 'abnt2', 'pt', texto, 1, resultado)
-    avaliacao = licoes.avaliar(registro, nivel)
-    modo_licao.mostrar_relatorio(registro, avaliacao, 'pt')
+    """O relatório vive na mesma janela do exercício; abrir a lição já o cobre."""
+    _previa()
+
 
 
 JANELAS = {'menu': _menu, 'guia': _guia, 'previa': _previa,

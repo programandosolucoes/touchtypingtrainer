@@ -12,11 +12,17 @@ from dataclasses import dataclass
 LAYOUT_POR_IDIOMA = {'pt': 'abnt2', 'en': 'us', 'it': 'it'}
 
 _MAO = {'E': 'esquerda', 'D': 'direita'}
-_DEDO = {'P': 'minimo', 'R': 'anelar', 'M': 'medio', 'I': 'indicador'}
+_DEDO = {'P': 'minimo', 'R': 'anelar', 'M': 'medio', 'I': 'indicador',
+         'T': 'polegar'}
 
 # Deslocamento de cada linha, em larguras de tecla. É o escalonamento que faz o
-# desenho parecer um teclado de verdade.
-_DESLOCAMENTOS = (0.0, 1.5, 1.75, 2.25)
+# desenho parecer um teclado de verdade. A quinta é a do espaço.
+_DESLOCAMENTOS = (0.0, 1.5, 1.75, 2.25, 3.75)
+
+# A barra de espaço, que não cabe no esquema de uma tecla por caractere das
+# outras linhas. Precisa existir: o nível 3 do currículo ensina o espaço, e sem
+# ela o exercício pediria uma tecla que o desenho não sabe acender.
+LARGURA_DO_ESPACO = 6.0
 
 # (caracteres, mãos, dedos) por linha: números, cima, base, baixo.
 _LINHAS = {
@@ -63,6 +69,10 @@ def teclas(nome_layout):
                 caractere=caractere, linha=numero_da_linha,
                 x=deslocamento + coluna, largura=1.0,
                 mao=_MAO[maos[coluna]], dedo=_DEDO[dedos[coluna]]))
+    # O espaço é batido com o polegar; o direito, por convenção do toque.
+    resultado.append(TeclaFisica(
+        caractere=' ', linha=4, x=_DESLOCAMENTOS[4], largura=LARGURA_DO_ESPACO,
+        mao='direita', dedo='polegar'))
     return tuple(resultado)
 
 
@@ -110,7 +120,8 @@ def retangulos(nome_layout, largura_px, altura_px):
     """
     todas = teclas(nome_layout)
     colunas = max(t.x + t.largura for t in todas)
-    unidade = min(largura_px / colunas, altura_px / len(_LINHAS[nome_layout]))
+    linhas = max(t.linha for t in todas) + 1
+    unidade = min(largura_px / colunas, altura_px / linhas)
     return {
         t.caractere: (t.x * unidade, t.linha * unidade,
                       (t.x + t.largura) * unidade, (t.linha + 1) * unidade)

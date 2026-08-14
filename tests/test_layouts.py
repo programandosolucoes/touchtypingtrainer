@@ -10,7 +10,8 @@ TODOS = ('abnt2', 'us', 'it')
 def test_toda_tecla_tem_mao_e_dedo(nome):
     for tecla in layouts.teclas(nome):
         assert tecla.mao in ('esquerda', 'direita'), tecla
-        assert tecla.dedo in ('minimo', 'anelar', 'medio', 'indicador'), tecla
+        assert tecla.dedo in ('minimo', 'anelar', 'medio', 'indicador',
+                              'polegar'), tecla
 
 
 @pytest.mark.parametrize('nome', TODOS)
@@ -72,3 +73,22 @@ def test_retangulos_acompanham_a_area_pedida():
 
 def test_caracteres_da_linha_devolve_a_linha_base():
     assert layouts.caracteres_da_linha('us', 2) == "asdfghjkl;'"
+
+
+@pytest.mark.parametrize('nome', TODOS)
+def test_o_espaco_existe_como_tecla(nome):
+    # O nível 3 do currículo ensina o espaço; sem ele no layout, o exercício
+    # pediria uma tecla que o teclado desenhado não sabe acender.
+    assert layouts.dedo_de(' ', nome) == ('direita', 'polegar')
+
+
+@pytest.mark.parametrize('nome', TODOS)
+def test_a_barra_de_espaco_e_larga(nome):
+    espaco = [t for t in layouts.teclas(nome) if t.caractere == ' '][0]
+    assert espaco.largura > 3
+
+
+@pytest.mark.parametrize('nome', TODOS)
+def test_o_espaco_fica_na_ultima_linha(nome):
+    espaco = [t for t in layouts.teclas(nome) if t.caractere == ' '][0]
+    assert espaco.linha == max(t.linha for t in layouts.teclas(nome))

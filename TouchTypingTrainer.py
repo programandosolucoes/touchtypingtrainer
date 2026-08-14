@@ -25,13 +25,13 @@ import time
 from datetime import datetime
 
 import ai_exercises
+import aplicativo
 import historico
 import layouts
 import licoes
-import maos_widget
 import metricas
-import modo_licao
-import teclado_widget
+import sessao as mod_sessao
+import tema
 from gui_backend import sg
 from i18n import get_text, translations
 from sentences_ai import FRASES_IA
@@ -131,8 +131,8 @@ def create_main_window(lang_for_window, length_pref_for_window, source_pref_for_
     Recebe o estado por parâmetro (em vez de ler as globais) justamente porque é
     chamada de novo a cada troca de idioma: quem chama decide qual estado desenhar.
     """
-    sg.theme('SystemDefault')
-    font_settings = ('Helvetica', 10)
+    tema.aplicar(sg)
+    font_settings = tema.texto(tema.TAMANHO_APOIO)
     app_window_title = get_text('app_title', lang_for_window)
 
     # Idioma: o valor do rádio é a chave de evento, o dicionário mapeia para o código
@@ -186,7 +186,7 @@ def create_main_window(lang_for_window, length_pref_for_window, source_pref_for_
     ai_ops_column = sg.Column(
         [[sg.Button(get_text('ai_generate_button', lang_for_window), key='-AI_GENERATE-',
                     font=font_settings, expand_x=True)],
-         [sg.Text(status_ia, key='-AI_STATUS-', font=('Helvetica', 9), justification='center',
+         [sg.Text(status_ia, key='-AI_STATUS-', font=tema.texto(tema.TAMANHO_APOIO), justification='center',
                   expand_x=True)]],
         justification='center', key='-AI_OPS_COLUMN-',
         visible=(source_pref_for_window == 'ai'), expand_x=True)
@@ -211,23 +211,43 @@ def create_main_window(lang_for_window, length_pref_for_window, source_pref_for_
                                    [time_limit_radios, [manual_time_container]],
                                    font=font_settings, expand_x=True)
 
+    # Configuração da lição: quantos exercícios na série e em que nível treinar.
+    # O seletor lista SÓ os níveis já liberados — revisar o passado é permitido,
+    # pular adiante não, senão o portão de progressão deixa de existir.
+    sessao_atual = mod_sessao.Sessao(lang_for_window, caminho_do_historico())
+    niveis = sessao_atual.niveis_disponiveis()
+    rotulos = [aplicativo.rotulo_do_nivel(n, sessao_atual, lang_for_window)
+               for n in niveis]
+    licao_frame = sg.Frame(get_text('menu_modo_licao', lang_for_window), [
+        [sg.Text(get_text('menu_serie_label', lang_for_window),
+                 font=tema.texto(tema.TAMANHO_APOIO)),
+         sg.Combo([str(n) for n in mod_sessao.EXERCICIOS_POR_SERIE],
+                  default_value=str(mod_sessao.PADRAO_DE_SERIE), key='-SERIE-',
+                  readonly=True, size=(5, 1), font=tema.texto(tema.TAMANHO_APOIO))],
+        [sg.Text(get_text('menu_nivel_label', lang_for_window),
+                 font=tema.texto(tema.TAMANHO_APOIO)),
+         sg.Combo(rotulos, default_value=rotulos[-1], key='-NIVEL-', readonly=True,
+                  size=(38, 1), font=tema.texto(tema.TAMANHO_APOIO))],
+    ], font=tema.texto(tema.TAMANHO_APOIO), expand_x=True)
+
     layout = [
-        [sg.Text(app_window_title, font=('Helvetica', 20), justification='center',
-                 expand_x=True, key='-APP_TITLE_DISPLAY-')],
-        [sg.Text(get_text('welcome_message', lang_for_window), font=('Helvetica', 12),
+        [sg.Text(app_window_title, font=tema.texto(tema.TAMANHO_TITULO, True),
+                 justification='center', expand_x=True, key='-APP_TITLE_DISPLAY-')],
+        [sg.Text(get_text('welcome_message', lang_for_window), font=tema.texto(tema.TAMANHO_CORPO),
                  justification='center', expand_x=True)],
         [sg.VPush()], [lang_frame], [source_frame], [length_frame],
         [file_ops_column], [ai_ops_column], [time_settings_frame], [sg.VPush()],
         [sg.Button(get_text('hand_guide_button', lang_for_window), key='-HAND_GUIDE-',
-                   expand_x=True, font=('Helvetica', 12))],
+                   expand_x=True, font=tema.texto(tema.TAMANHO_CORPO))],
+        [licao_frame],
         [sg.Button(get_text('menu_modo_licao', lang_for_window), key='-MODO_LICAO-',
-                   expand_x=True, font=('Helvetica', 13),
-                   button_color=('white', 'darkgreen'))],
+                   expand_x=True, font=tema.texto(tema.TAMANHO_SUBTITULO, True),
+                   button_color=(tema.SOBRE_PRIMARIA, tema.PRIMARIA))],
         [sg.Button(get_text('menu_treino_livre', lang_for_window), key='-START_TRAINING-',
-                   expand_x=True, font=('Helvetica', 12))],
+                   expand_x=True, font=tema.texto(tema.TAMANHO_CORPO))],
         [sg.VPush()],
         [sg.Button(get_text('exit_button', lang_for_window), key='-EXIT-', expand_x=True,
-                   font=('Helvetica', 10), button_color=('white', 'firebrick'))],
+                   font=tema.texto(tema.TAMANHO_APOIO), button_color=('white', 'firebrick'))],
     ]
     return sg.Window(app_window_title, layout, finalize=True,
                      element_justification='center', size=(800, 860))
@@ -239,75 +259,13 @@ def show_hand_positioning_guide():
     Substitui o desenho ASCII em fonte monoespaçada. A informação é a mesma, mas
     aqui ela é dado consultável (`layouts.py`) em vez de texto — e a mesma cor
     liga cada tecla ao dedo na ilustração das mãos.
-
-    Clicar numa mão ou passar por ela não faz nada de propósito: aqui é consulta.
-    Quem cobra posição de mão é o teste da tela prévia do Modo Lição.
     """
-    nome_layout = layouts.LAYOUT_POR_IDIOMA[current_lang]
-    teclado = teclado_widget.Teclado(nome_layout, 900, 260, chave='-TECLADO_GUIA-')
-    maos = maos_widget.Maos(340, 224, chave='-MAOS_GUIA-')
-    titulo = get_text('hand_guide_title', current_lang)
-    layout = [
-        [sg.Text(titulo, font=('Helvetica', 16))],
-        [sg.Text(get_text('licao_teste_esquerda', current_lang), font=('Helvetica', 10))],
-        [maos.elemento()],
-        [teclado.elemento()],
-        [sg.Button(get_text('ok_button', current_lang), key='-OK-', font=('Helvetica', 11))],
-    ]
-    popup_window = sg.Window(titulo, layout, modal=True, keep_on_top=True,
-                             finalize=True, element_justification='center',
-                             size=(980, 660))
-    teclado.desenhar()
-    maos.desenhar()
-    # Acende a linha-base: é a informação que o guia existe para passar.
-    esquerda, direita = layouts.teclas_base(nome_layout)
-    for caractere in esquerda + direita:
-        teclado.pintar(caractere, 'proxima')
-    while True:
-        event, _ = popup_window.read()
-        if event == sg.WIN_CLOSED or event == '-OK-':
-            break
-    popup_window.close()
+    aplicativo.abrir_guia(current_lang, caminho_do_historico())
 
 
-def rodar_licao(idioma):
-    """Um ciclo do Modo Lição: tela prévia, exercício, avaliação e gravação."""
-    nome_layout = layouts.LAYOUT_POR_IDIOMA[idioma]
-    arquivo = caminho_do_historico()
-    registros = historico.ler(arquivo)
-    nivel = licoes.nivel_atual(registros, nome_layout)
-    aprovacoes = licoes.aprovacoes_seguidas(registros, nivel)
-
-    preferencias = historico.ler_preferencias(arquivo)
-    ja_sabia = bool(preferencias.get('teclado_sem_rollover'))
-    comecar, sem_rollover = modo_licao.tela_previa(
-        nivel, nome_layout, idioma, ja_sabia, aprovacoes)
-    if sem_rollover and not ja_sabia:
-        # Descoberto agora: grava para não cobrar 15 segundos de espera de novo.
-        historico.gravar_preferencia(arquivo, 'teclado_sem_rollover', True)
-    if not comecar:
-        return
-
-    semente = int(time.time())
-    if nivel.numero >= 12:
-        frases = get_text('short_sentences', idioma) + get_text('long_sentences', idioma)
-        permitidas = licoes.teclas_liberadas(nome_layout, nivel.numero)
-        candidatas = licoes.filtrar_frases(frases, permitidas) or frases
-        texto = random.Random(semente).choice(candidatas)
-    else:
-        texto = licoes.gerar_exercicio(nome_layout, nivel.numero, semente)
-
-    limite = licoes.limite_de_tempo(len(texto), nivel.wpm_meta)
-    resultado = modo_licao.executar_exercicio(texto, nome_layout, idioma, limite)
-    if resultado['cancelado']:
-        return
-
-    registro = modo_licao.montar_registro(nivel, nome_layout, idioma, texto, semente,
-                                          resultado)
-    avaliacao = licoes.avaliar(registro, nivel)
-    registro['aprovado'] = avaliacao.aprovado
-    historico.gravar(registro, arquivo)
-    modo_licao.mostrar_relatorio(registro, avaliacao, idioma)
+def rodar_licao(idioma, tamanho_da_serie=None, nivel=None):
+    """Abre o Modo Lição: série inteira numa janela só, sem modal por etapa."""
+    aplicativo.abrir_licao(idioma, caminho_do_historico(), tamanho_da_serie, nivel)
 
 
 # ---------------------------------------------------------------------------
@@ -468,19 +426,19 @@ def start_training_session(length_preference, source_preference, time_mode, manu
 
     # Um sg.Text por caractere: é o que permite colorir letra a letra durante a digitação
     target_char_elements = [
-        sg.Text(c, key=f'-TARGET_CHAR_{i}-', font=('Courier New', 14, 'bold'), pad=(0, 0),
+        sg.Text(c, key=f'-TARGET_CHAR_{i}-', font=tema.mono(tema.TAMANHO_DESTAQUE, True), pad=(0, 0),
                 text_color=get_text('pending_char_color', lang_code))
         for i, c in enumerate(target_sentence)]
     target_display_container = sg.Column([[*target_char_elements]], scrollable=True,
                                          expand_x=True, background_color='lightgrey',
                                          pad=(5, 10), key='-TARGET_DISPLAY_CONTAINER-')
     timer_display = sg.Text(f"{get_text('timer_label', lang_code)} 0.0s / {max_exercise_time:.1f}s",
-                            key='-TIMER_DISPLAY-', font=('Helvetica', 10))
+                            key='-TIMER_DISPLAY-', font=tema.texto(tema.TAMANHO_APOIO))
     training_layout = [
         [sg.Text(get_text('sentence_to_type_label', lang_code)), sg.Push(), timer_display],
         [target_display_container],
         [sg.Text(get_text('your_input_label', lang_code))],
-        [sg.InputText(key='-USER_INPUT-', font=('Courier New', 14), expand_x=True, focus=True,
+        [sg.InputText(key='-USER_INPUT-', font=tema.mono(tema.TAMANHO_DESTAQUE), expand_x=True, focus=True,
                       enable_events=True)],
         [sg.Button(get_text('submit_button', lang_code), key='-SUBMIT-', bind_return_key=True),
          sg.Button(get_text('cancel_button', lang_code), key='-CANCEL-')],
@@ -589,11 +547,11 @@ def start_training_session(length_preference, source_preference, time_mode, manu
     }, caminho_do_historico())
 
     report_layout = [
-        [sg.Text(get_text('report_title', lang_code), font=('Helvetica', 16))],
+        [sg.Text(get_text('report_title', lang_code), font=tema.texto(tema.TAMANHO_SUBTITULO, True))],
         [sg.Text(f"{get_text('report_target_sentence', lang_code)} {report_data['target_sentence']}",
-                 font=('Courier New', 10), size=(70, 2))],
+                 font=tema.mono(tema.TAMANHO_APOIO), size=(70, 2))],
         [sg.Text(f"{get_text('report_your_sentence', lang_code)} {report_data['typed_sentence']}",
-                 font=('Courier New', 10), size=(70, 2))],
+                 font=tema.mono(tema.TAMANHO_APOIO), size=(70, 2))],
         [sg.HSeparator()],
         [sg.Text(f"{get_text('report_target_length', lang_code)} {report_data['target_length']}")],
         [sg.Text(f"{get_text('report_typed_length', lang_code)} {report_data['typed_length']}")],
@@ -610,7 +568,7 @@ def start_training_session(length_preference, source_preference, time_mode, manu
             metricas.wpm_liquido(report_data['typed_length'], final_elapsed_time,
                                  report_data['errors'])))],
         [sg.Text(f"{get_text('report_performance_label', lang_code)} {perf_txt}",
-                 font=('Helvetica', 11, 'bold'), text_color=perf_color)],
+                 font=tema.texto(tema.TAMANHO_CORPO, True), text_color=perf_color)],
         [sg.Button(get_text('ok_button', lang_code), key='-OK-')],
     ]
     report_win = sg.Window(get_text('report_title', lang_code), report_layout, modal=True,
@@ -752,7 +710,22 @@ def main():
         elif event == '-HAND_GUIDE-':
             show_hand_positioning_guide()
         elif event == '-MODO_LICAO-':
-            rodar_licao(current_lang)
+            try:
+                tamanho = int(values.get('-SERIE-') or mod_sessao.PADRAO_DE_SERIE)
+            except (TypeError, ValueError):
+                tamanho = mod_sessao.PADRAO_DE_SERIE
+            # O rótulo do nível começa com "Nível N —"; o número é o que interessa.
+            escolhido = None
+            rotulo = values.get('-NIVEL-') or ''
+            for pedaco in rotulo.replace('—', ' ').split():
+                if pedaco.isdigit():
+                    escolhido = int(pedaco)
+                    break
+            window.close()
+            rodar_licao(current_lang, tamanho, escolhido)
+            window = create_main_window(current_lang, current_length_pref,
+                                        current_source_pref, current_time_limit_mode,
+                                        current_manual_time_setting)
         elif event == '-START_TRAINING-':
             manual_time_to_pass = current_manual_time_setting
             if current_time_limit_mode == 'manual':
