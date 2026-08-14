@@ -62,9 +62,13 @@ def empacotar(edicao):
     cfg = EDICOES[edicao]
     original = definir_edicao(edicao)
     try:
+        # O PyInstaller joga tudo em dist/ por padrão, mas o projeto guarda os
+        # binários separados por plataforma — e ele não faz compilação cruzada,
+        # então a plataforma de destino é sempre a que está rodando o build.
+        destino = os.path.join(RAIZ, 'dist', 'windows' if os.name == 'nt' else 'linux')
         comando = [
             sys.executable, '-m', 'PyInstaller', '--noconfirm', '--onefile',
-            '--name', cfg['nome'],
+            '--name', cfg['nome'], '--distpath', destino,
             *libs_tcl_tk(),
             # As libs de GUI são importadas dinamicamente via gui_backend; sem o
             # hidden-import o PyInstaller não enxerga a dependência da edição.
@@ -90,7 +94,8 @@ def main():
         print('aviso: pyinstaller não está no PATH; usando "python -m PyInstaller"')
     for edicao in alvos:
         empacotar(edicao)
-    print('\nbinários em', os.path.join(RAIZ, 'dist'))
+    print('\nbinários em', os.path.join(RAIZ, 'dist',
+                                        'windows' if os.name == 'nt' else 'linux'))
     return 0
 
 
