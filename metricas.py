@@ -4,6 +4,7 @@ Separado da janela de propósito: é a parte que dá para testar sozinha, e é o
 mora a decisão do que conta como bom desempenho.
 """
 import statistics
+from dataclasses import dataclass
 
 # Padrão da área: uma "palavra" são 5 caracteres, independente do idioma.
 CARACTERES_POR_PALAVRA = 5
@@ -54,3 +55,46 @@ def regularidade(intervalos_ms):
     limite = mediana * FATOR_DE_PARADA
     paradas = sum(1 for i in contados if i > limite)
     return round(1 - paradas / len(contados), 4)
+
+
+@dataclass(frozen=True)
+class Batida:
+    """Uma tecla cobrada pelo exercício e o que o usuário respondeu.
+
+    `ms` é o intervalo desde a batida anterior — é dele que sai a regularidade.
+    """
+    esperado: str
+    digitado: str
+    ms: float
+
+
+def tropecos(batidas):
+    """Quantas vezes o usuário digitou a tecla errada ao longo do exercício.
+
+    Diferente de "erros no texto final": corrigir depois não apaga o tropeço,
+    porque o que se está medindo é o caminho, não o produto.
+    """
+    return sum(1 for b in batidas if b.esperado != b.digitado)
+
+
+def resumo_por_tecla(batidas):
+    """Agrupa as batidas pelo caractere ESPERADO.
+
+    Devolve, por tecla: acertos, erros, tempo médio de resposta e `confusoes`
+    — o que foi digitado no lugar e quantas vezes. É a matéria-prima do
+    diagnóstico por dedo.
+    """
+    resumo = {}
+    for b in batidas:
+        entrada = resumo.setdefault(
+            b.esperado, {'acertos': 0, 'erros': 0, 'ms_total': 0.0, 'confusoes': {}})
+        entrada['ms_total'] += b.ms
+        if b.esperado == b.digitado:
+            entrada['acertos'] += 1
+        else:
+            entrada['erros'] += 1
+            entrada['confusoes'][b.digitado] = entrada['confusoes'].get(b.digitado, 0) + 1
+    for entrada in resumo.values():
+        total = entrada['acertos'] + entrada['erros']
+        entrada['ms_medio'] = round(entrada.pop('ms_total') / total) if total else 0
+    return resumo

@@ -60,3 +60,40 @@ def test_regularidade_sem_intervalos_suficientes_e_indefinida():
 def test_regularidade_com_mediana_zero_e_indefinida():
     # Caso degenerado (relógio sem resolução): não inventa nota.
     assert metricas.regularidade([0.0] * 20) is None
+
+
+def test_tropecos_conta_cada_tecla_errada():
+    batidas = [
+        metricas.Batida('a', 'a', 200.0),
+        metricas.Batida('s', 'd', 300.0),
+        metricas.Batida('s', 's', 250.0),
+    ]
+    assert metricas.tropecos(batidas) == 1
+
+
+def test_resumo_por_tecla_agrupa_pelo_caractere_esperado():
+    batidas = [
+        metricas.Batida('a', 'a', 200.0),
+        metricas.Batida('a', 's', 400.0),
+        metricas.Batida('a', 'a', 300.0),
+    ]
+    resumo = metricas.resumo_por_tecla(batidas)
+    assert resumo['a']['acertos'] == 2
+    assert resumo['a']['erros'] == 1
+    assert resumo['a']['ms_medio'] == 300
+
+
+def test_resumo_registra_o_que_foi_digitado_no_lugar():
+    # É esse par que revela dedo trocado: esperava j, saiu k = médio no lugar
+    # do indicador.
+    batidas = [
+        metricas.Batida('j', 'k', 400.0),
+        metricas.Batida('j', 'k', 380.0),
+        metricas.Batida('j', 'h', 350.0),
+    ]
+    resumo = metricas.resumo_por_tecla(batidas)
+    assert resumo['j']['confusoes'] == {'k': 2, 'h': 1}
+
+
+def test_resumo_de_lista_vazia_e_dicionario_vazio():
+    assert metricas.resumo_por_tecla([]) == {}
