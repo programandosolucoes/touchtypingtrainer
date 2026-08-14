@@ -20,6 +20,7 @@ O resultado sai como PNG em memória (`bytes`), que é o formato que o
 `sg.Image.update(data=...)` aceita — sem arquivo temporário no disco.
 """
 import io
+import os
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -53,8 +54,46 @@ def _fonte(tamanho_px, negrito=False):
     return fonte
 
 
+# No Windows não há fontconfig. As fontes moram todas em C:\Windows\Fonts e o
+# jeito de achá-las é pelo nome do arquivo, que é estável entre versões.
+_ARQUIVOS_NO_WINDOWS = (
+    ('segoeuib.ttf', 'segoeui.ttf'),      # Segoe UI: a fonte de interface do Windows
+    ('calibrib.ttf', 'calibri.ttf'),
+    ('tahomabd.ttf', 'tahoma.ttf'),
+    ('arialbd.ttf', 'arial.ttf'),
+    ('verdanab.ttf', 'verdana.ttf'),
+)
+
+
 def _caminho_da_fonte(familia, negrito):
-    """Pergunta ao fontconfig onde está o arquivo daquela família."""
+    """Onde está o arquivo TrueType daquela família, ou None.
+
+    O Pillow precisa do ARQUIVO, não do nome da família — e cada sistema guarda
+    isso de um jeito. Sem tratar o Windows, o programa empacotado para lá cairia
+    na fonte embutida do Pillow e a letra do teclado sairia diferente da do resto
+    da interface.
+    """
+    if os.name == 'nt':
+        pasta = os.path.join(os.environ.get('WINDIR', r'C:\Windows'), 'Fonts')
+        # 1) O arquivo da própria família escolhida pelo tema, se existir.
+        sem_espacos = familia.replace(' ', '').lower()
+        try:
+            arquivos = {nome.lower(): nome for nome in os.listdir(pasta)}
+        except OSError:
+            arquivos = {}
+        for sufixo in (('bd.ttf', 'b.ttf') if negrito else ('.ttf',)):
+            achado = arquivos.get(sem_espacos + sufixo)
+            if achado:
+                return os.path.join(pasta, achado)
+        # 2) A primeira das fontes de interface conhecidas do Windows.
+        for negrito_arquivo, normal_arquivo in _ARQUIVOS_NO_WINDOWS:
+            achado = arquivos.get(negrito_arquivo if negrito else normal_arquivo)
+            if achado:
+                return os.path.join(pasta, achado)
+        # 3) Nada: quem chama cai na fonte embutida do Pillow, que desenha mas
+        #    não combina com o resto da interface. Acontece sob Wine, cuja pasta
+        #    de fontes é vazia — ele mapeia as do Linux por fontconfig.
+        return None
     import shutil
     import subprocess
     if not shutil.which('fc-match'):
