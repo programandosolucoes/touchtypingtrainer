@@ -6,9 +6,16 @@ nenhum julga.
 
 Rode com:  .venv/bin/python tools/ver_teclado.py
 """
-import layouts
-import teclado_widget
-from gui_backend import sg
+import sys
+from pathlib import Path
+
+# Os módulos do aplicativo ficam na raiz do projeto, e este script está em
+# tools/ — sem isto, nenhum `import` daqui encontra nada.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+import layouts  # noqa: E402  (precisa vir depois do sys.path)
+import teclado_widget  # noqa: E402
+from gui_backend import sg  # noqa: E402
 
 for nome in ('abnt2', 'us', 'it'):
     teclado = teclado_widget.Teclado(nome, 900, 260)

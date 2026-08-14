@@ -180,6 +180,22 @@ def avaliar(resultado, nivel):
     return Avaliacao(aprovado=not faltou, faltou=tuple(faltou))
 
 
+def aprovacoes_seguidas(registros, nivel):
+    """Quantas aprovações consecutivas o aluno já tem NESTE nível.
+
+    Serve para a tela prévia dizer "1 de 2" em vez de deixar o aluno adivinhar
+    por que passou e o nível não abriu.
+    """
+    seguidas = 0
+    for registro in registros:
+        if registro.get('modo') != 'licao' or registro.get('nivel') != nivel.id:
+            continue
+        seguidas = seguidas + 1 if registro.get('aprovado') else 0
+        if seguidas >= APROVACOES_SEGUIDAS:
+            seguidas = 0      # já liberou o próximo; a contagem recomeça
+    return seguidas
+
+
 def nivel_atual(registros, nome_layout):
     """Em que nível o aluno está, lido do histórico.
 

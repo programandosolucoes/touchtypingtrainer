@@ -206,6 +206,34 @@ def test_exercicio_do_modo_livre_nao_conta_para_a_progressao():
     assert licoes.nivel_atual(registros, 'us').numero == 1
 
 
+def test_aprovacoes_seguidas_comeca_em_zero():
+    assert licoes.aprovacoes_seguidas([], NIVEL_1) == 0
+
+
+def test_aprovacoes_seguidas_conta_uma():
+    registros = [{'modo': 'licao', 'nivel': 'base-esquerda', 'aprovado': True}]
+    assert licoes.aprovacoes_seguidas(registros, NIVEL_1) == 1
+
+
+def test_aprovacoes_seguidas_zera_ao_reprovar():
+    registros = [
+        {'modo': 'licao', 'nivel': 'base-esquerda', 'aprovado': True},
+        {'modo': 'licao', 'nivel': 'base-esquerda', 'aprovado': False},
+    ]
+    assert licoes.aprovacoes_seguidas(registros, NIVEL_1) == 0
+
+
+def test_aprovacoes_seguidas_zera_ao_completar_a_dupla():
+    # Duas seguidas liberam o próximo nível; a contagem deste recomeça do zero.
+    registros = [{'modo': 'licao', 'nivel': 'base-esquerda', 'aprovado': True}] * 2
+    assert licoes.aprovacoes_seguidas(registros, NIVEL_1) == 0
+
+
+def test_aprovacoes_seguidas_ignora_o_treino_livre():
+    registros = [{'modo': 'livre', 'nivel': None, 'aprovado': True}] * 3
+    assert licoes.aprovacoes_seguidas(registros, NIVEL_1) == 0
+
+
 def test_nao_passa_do_ultimo_nivel():
     registros = [{'modo': 'licao', 'nivel': n.id, 'aprovado': True}
                  for n in licoes.curriculo('us') for _ in range(2)]

@@ -22,10 +22,18 @@ Edições: este mesmo código roda como edição **free** (FreeSimpleGUI, comple
 import os
 import random
 import time
+from datetime import datetime
 
 import ai_exercises
+import historico
+import layouts
+import licoes
+import maos_widget
+import metricas
+import modo_licao
+import teclado_widget
 from gui_backend import sg
-from i18n import get_formatted_focused_ascii, get_text, translations
+from i18n import get_text, translations
 from sentences_ai import FRASES_IA
 
 # Velocidade de digitação usada como régua, em caracteres por segundo. Não são
@@ -52,6 +60,24 @@ custom_sentences_all, custom_sentences_short, custom_sentences_long = [], [], []
 # Frases da fonte "Gerado por IA": banco que acompanha o programa + o que a IA gerar
 # nesta máquina. Recarregadas a cada troca de idioma por `carregar_frases_ia`.
 ai_sentences_all, ai_sentences_short, ai_sentences_long = [], [], []
+
+# Onde o progresso é gravado. Resolvido uma vez por execução; o aviso de que
+# caiu para a pasta do usuário só aparece na primeira vez.
+_caminho_do_historico = None
+_ja_avisou_da_queda = False
+
+
+def caminho_do_historico():
+    """Resolve (uma vez) onde o progresso mora e avisa se caiu para a home."""
+    global _caminho_do_historico, _ja_avisou_da_queda
+    if _caminho_do_historico is None:
+        _caminho_do_historico, caiu = historico.resolver_caminho(
+            historico.pasta_do_executavel(), historico.pasta_do_usuario())
+        if caiu and not _ja_avisou_da_queda:
+            _ja_avisou_da_queda = True
+            sg.popup(get_text('historico_caiu_para_usuario', current_lang).format(
+                _caminho_do_historico), keep_on_top=True)
+    return _caminho_do_historico
 
 
 # ---------------------------------------------------------------------------
@@ -194,41 +220,94 @@ def create_main_window(lang_for_window, length_pref_for_window, source_pref_for_
         [file_ops_column], [ai_ops_column], [time_settings_frame], [sg.VPush()],
         [sg.Button(get_text('hand_guide_button', lang_for_window), key='-HAND_GUIDE-',
                    expand_x=True, font=('Helvetica', 12))],
-        [sg.Button(get_text('start_training_button', lang_for_window), key='-START_TRAINING-',
+        [sg.Button(get_text('menu_modo_licao', lang_for_window), key='-MODO_LICAO-',
+                   expand_x=True, font=('Helvetica', 13),
+                   button_color=('white', 'darkgreen'))],
+        [sg.Button(get_text('menu_treino_livre', lang_for_window), key='-START_TRAINING-',
                    expand_x=True, font=('Helvetica', 12))],
         [sg.VPush()],
         [sg.Button(get_text('exit_button', lang_for_window), key='-EXIT-', expand_x=True,
                    font=('Helvetica', 10), button_color=('white', 'firebrick'))],
     ]
     return sg.Window(app_window_title, layout, finalize=True,
-                     element_justification='center', size=(600, 760))
+                     element_justification='center', size=(800, 860))
 
 
 def show_hand_positioning_guide():
-    """Abre o guia de posicionamento das mãos no idioma atual.
+    """Guia de mãos: o teclado desenhado, colorido por dedo.
 
-    O conteúdo é montado juntando quatro partes traduzidas: a explicação da linha-base,
-    o desenho reduzido com os dedos, o desenho completo do teclado daquele idioma e as
-    dicas gerais. Usa fonte monoespaçada — em fonte proporcional o desenho desalinha.
+    Substitui o desenho ASCII em fonte monoespaçada. A informação é a mesma, mas
+    aqui ela é dado consultável (`layouts.py`) em vez de texto — e a mesma cor
+    liga cada tecla ao dedo na ilustração das mãos.
+
+    Clicar numa mão ou passar por ela não faz nada de propósito: aqui é consulta.
+    Quem cobra posição de mão é o teste da tela prévia do Modo Lição.
     """
-    guide_content = get_text('hand_guide_text_intro', current_lang) + \
-        get_formatted_focused_ascii(current_lang) + \
-        get_text('general_keyboard_layout_label', current_lang) + '\n' + \
-        get_text('full_keyboard_ascii_art', current_lang) + \
-        get_text('hand_guide_text_tips', current_lang)
+    nome_layout = layouts.LAYOUT_POR_IDIOMA[current_lang]
+    teclado = teclado_widget.Teclado(nome_layout, 900, 260, chave='-TECLADO_GUIA-')
+    maos = maos_widget.Maos(340, 224, chave='-MAOS_GUIA-')
+    titulo = get_text('hand_guide_title', current_lang)
     layout = [
-        [sg.Text(get_text('hand_guide_title', current_lang), font=('Helvetica', 16))],
-        [sg.Multiline(guide_content, size=(90, 40), font=('Courier New', 9),
-                      disabled=True, expand_x=True, expand_y=True)],
-        [sg.Button(get_text('ok_button', current_lang), key='-OK-', font=('Helvetica', 10))],
+        [sg.Text(titulo, font=('Helvetica', 16))],
+        [sg.Text(get_text('licao_teste_esquerda', current_lang), font=('Helvetica', 10))],
+        [maos.elemento()],
+        [teclado.elemento()],
+        [sg.Button(get_text('ok_button', current_lang), key='-OK-', font=('Helvetica', 11))],
     ]
-    popup_window = sg.Window(get_text('hand_guide_title', current_lang), layout, modal=True,
-                             keep_on_top=True, resizable=True, size=(800, 700))
+    popup_window = sg.Window(titulo, layout, modal=True, keep_on_top=True,
+                             finalize=True, element_justification='center',
+                             size=(980, 660))
+    teclado.desenhar()
+    maos.desenhar()
+    # Acende a linha-base: é a informação que o guia existe para passar.
+    esquerda, direita = layouts.teclas_base(nome_layout)
+    for caractere in esquerda + direita:
+        teclado.pintar(caractere, 'proxima')
     while True:
         event, _ = popup_window.read()
         if event == sg.WIN_CLOSED or event == '-OK-':
             break
     popup_window.close()
+
+
+def rodar_licao(idioma):
+    """Um ciclo do Modo Lição: tela prévia, exercício, avaliação e gravação."""
+    nome_layout = layouts.LAYOUT_POR_IDIOMA[idioma]
+    arquivo = caminho_do_historico()
+    registros = historico.ler(arquivo)
+    nivel = licoes.nivel_atual(registros, nome_layout)
+    aprovacoes = licoes.aprovacoes_seguidas(registros, nivel)
+
+    preferencias = historico.ler_preferencias(arquivo)
+    ja_sabia = bool(preferencias.get('teclado_sem_rollover'))
+    comecar, sem_rollover = modo_licao.tela_previa(
+        nivel, nome_layout, idioma, ja_sabia, aprovacoes)
+    if sem_rollover and not ja_sabia:
+        # Descoberto agora: grava para não cobrar 15 segundos de espera de novo.
+        historico.gravar_preferencia(arquivo, 'teclado_sem_rollover', True)
+    if not comecar:
+        return
+
+    semente = int(time.time())
+    if nivel.numero >= 12:
+        frases = get_text('short_sentences', idioma) + get_text('long_sentences', idioma)
+        permitidas = licoes.teclas_liberadas(nome_layout, nivel.numero)
+        candidatas = licoes.filtrar_frases(frases, permitidas) or frases
+        texto = random.Random(semente).choice(candidatas)
+    else:
+        texto = licoes.gerar_exercicio(nome_layout, nivel.numero, semente)
+
+    limite = licoes.limite_de_tempo(len(texto), nivel.wpm_meta)
+    resultado = modo_licao.executar_exercicio(texto, nome_layout, idioma, limite)
+    if resultado['cancelado']:
+        return
+
+    registro = modo_licao.montar_registro(nivel, nome_layout, idioma, texto, semente,
+                                          resultado)
+    avaliacao = licoes.avaliar(registro, nivel)
+    registro['aprovado'] = avaliacao.aprovado
+    historico.gravar(registro, arquivo)
+    modo_licao.mostrar_relatorio(registro, avaliacao, idioma)
 
 
 # ---------------------------------------------------------------------------
@@ -485,6 +564,30 @@ def start_training_session(length_preference, source_preference, time_mode, manu
     elif get_text('perf_time_limit_exceeded', lang_code) in perf_txt:
         perf_color = 'red'
 
+    # O treino livre também entra no histórico, com modo 'livre'. Ele não conta
+    # para a progressão do currículo, mas conta para a evolução ao longo do tempo.
+    historico.gravar({
+        'quando': datetime.now().astimezone().isoformat(timespec='seconds'),
+        'modo': 'livre',
+        'nivel': None,
+        'idioma': lang_code,
+        'layout': layouts.LAYOUT_POR_IDIOMA[lang_code],
+        'alvo': target_sentence,
+        'duracao_s': round(final_elapsed_time, 2),
+        'wpm_bruto': round(metricas.wpm(report_data['typed_length'],
+                                        final_elapsed_time), 2),
+        'wpm_liquido': round(metricas.wpm_liquido(report_data['typed_length'],
+                                                  final_elapsed_time,
+                                                  report_data['errors']), 2),
+        'tropecos': final_persistent_errors,
+        'total_teclas': target_len,
+        # O treino livre lê o campo de texto inteiro a cada tecla, não batida por
+        # batida: não há intervalo por tecla para medir ritmo.
+        'regularidade': None,
+        'aprovado': None,
+        'teclas': {},
+    }, caminho_do_historico())
+
     report_layout = [
         [sg.Text(get_text('report_title', lang_code), font=('Helvetica', 16))],
         [sg.Text(f"{get_text('report_target_sentence', lang_code)} {report_data['target_sentence']}",
@@ -502,6 +605,10 @@ def start_training_session(length_preference, source_preference, time_mode, manu
                  text_color='green' if report_data['accuracy'] >= 95
                  else ('darkorange' if report_data['accuracy'] >= acc_thresh else 'red'))],
         [sg.Text(f"{get_text('report_time_taken', lang_code)} {final_elapsed_time:.2f}s")],
+        [sg.Text('WPM: {:.1f} / {:.1f}'.format(
+            metricas.wpm(report_data['typed_length'], final_elapsed_time),
+            metricas.wpm_liquido(report_data['typed_length'], final_elapsed_time,
+                                 report_data['errors'])))],
         [sg.Text(f"{get_text('report_performance_label', lang_code)} {perf_txt}",
                  font=('Helvetica', 11, 'bold'), text_color=perf_color)],
         [sg.Button(get_text('ok_button', lang_code), key='-OK-')],
@@ -644,6 +751,8 @@ def main():
             download_example_txt_file(current_lang)
         elif event == '-HAND_GUIDE-':
             show_hand_positioning_guide()
+        elif event == '-MODO_LICAO-':
+            rodar_licao(current_lang)
         elif event == '-START_TRAINING-':
             manual_time_to_pass = current_manual_time_setting
             if current_time_limit_mode == 'manual':
