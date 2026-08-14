@@ -245,6 +245,8 @@ def create_main_window(lang_for_window, length_pref_for_window, source_pref_for_
                    button_color=(tema.SOBRE_PRIMARIA, tema.PRIMARIA))],
         [sg.Button(get_text('menu_treino_livre', lang_for_window), key='-START_TRAINING-',
                    expand_x=True, font=tema.texto(tema.TAMANHO_CORPO))],
+        [sg.Button(get_text('menu_progresso', lang_for_window), key='-PROGRESSO-',
+                   expand_x=True, font=tema.texto(tema.TAMANHO_CORPO))],
         [sg.VPush()],
         [sg.Button(get_text('exit_button', lang_for_window), key='-EXIT-', expand_x=True,
                    font=tema.texto(tema.TAMANHO_APOIO), button_color=('white', 'firebrick'))],
@@ -709,6 +711,8 @@ def main():
             download_example_txt_file(current_lang)
         elif event == '-HAND_GUIDE-':
             show_hand_positioning_guide()
+        elif event == '-PROGRESSO-':
+            aplicativo.abrir_progresso(current_lang, caminho_do_historico())
         elif event == '-MODO_LICAO-':
             try:
                 tamanho = int(values.get('-SERIE-') or mod_sessao.PADRAO_DE_SERIE)

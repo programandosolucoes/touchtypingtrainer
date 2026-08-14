@@ -39,7 +39,8 @@ class Aplicativo:
     def _montar(self):
         tema.aplicar(sg)   # antes de criar qualquer elemento
         for classe in (mod_telas.TelaGuia, mod_telas.TelaPrevia,
-                       mod_telas.TelaExercicio, mod_telas.TelaRelatorio):
+                       mod_telas.TelaExercicio, mod_telas.TelaRelatorio,
+                       mod_telas.TelaProgresso):
             tela = classe(self)
             self.telas[tela.nome] = tela
         colunas = [[tela.coluna()] for tela in self.telas.values()]
@@ -115,6 +116,11 @@ class Aplicativo:
 def abrir_guia(idioma, arquivo_do_historico):
     """Guia de mãos: teclado colorido por dedo, na mesma janela do resto."""
     Aplicativo(idioma, arquivo_do_historico).rodar('guia')
+
+
+def abrir_progresso(idioma, arquivo_do_historico):
+    """Evolução e diagnóstico, na mesma janela do resto."""
+    Aplicativo(idioma, arquivo_do_historico).rodar('progresso')
 
 
 def abrir_licao(idioma, arquivo_do_historico, tamanho_da_serie=None, nivel=None):

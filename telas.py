@@ -459,3 +459,110 @@ class TelaRelatorio(Tela):
             # mão voltou à posição, e é rápido quando já se sabe fazer.
             return 'previa'
         return None
+
+
+class TelaProgresso(Tela):
+    """Evolução ao longo dos dias e diagnóstico de tecla e dedo.
+
+    Só lê o histórico. Cada tabela usa `sg.Table` em vez de texto formatado à
+    mão porque `sg.Table` alinha coluna sozinho — texto monoespaçado alinhado na
+    unha quebra assim que uma tradução muda de largura.
+    """
+    nome = 'progresso'
+    LINHAS_VISIVEIS = 7
+
+    def coluna(self):
+        def tabela(chave, cabecalhos, larguras):
+            return sg.Table(
+                values=[], headings=cabecalhos, key=chave,
+                num_rows=self.LINHAS_VISIVEIS, col_widths=larguras,
+                auto_size_columns=False, justification='center',
+                font=tema.texto(tema.TAMANHO_APOIO),
+                header_font=tema.texto(tema.TAMANHO_APOIO, True),
+                background_color=tema.SUPERFICIE, text_color=tema.TEXTO,
+                header_background_color=tema.SUPERFICIE_VARIANTE,
+                header_text_color=tema.TEXTO, hide_vertical_scroll=True,
+                expand_x=True)
+
+        return sg.Column([
+            [sg.Text('', key='-PROG_TITULO-', font=tema.texto(tema.TAMANHO_TITULO, True),
+                     text_color=tema.TEXTO)],
+            [sg.Text('', key='-PROG_RESUMO-', font=tema.texto(tema.TAMANHO_CORPO),
+                     text_color=tema.TEXTO)],
+            [sg.Text('', key='-PROG_TENDENCIA-',
+                     font=tema.texto(tema.TAMANHO_SUBTITULO, True))],
+            [sg.HorizontalSeparator()],
+            [sg.Text('', key='-PROG_DIAS_TIT-', font=tema.texto(tema.TAMANHO_CORPO, True),
+                     text_color=tema.TEXTO)],
+            [tabela('-PROG_DIAS-', ['', '', '', ''], [14, 12, 12, 12])],
+            [sg.Text('', key='-PROG_TECLAS_TIT-', font=tema.texto(tema.TAMANHO_CORPO, True),
+                     text_color=tema.TEXTO)],
+            [tabela('-PROG_TECLAS-', ['', '', '', ''], [10, 12, 12, 18])],
+            [sg.Text('', key='-PROG_DEDOS_TIT-', font=tema.texto(tema.TAMANHO_CORPO, True),
+                     text_color=tema.TEXTO)],
+            [tabela('-PROG_DEDOS-', ['', '', ''], [26, 12, 12])],
+            [sg.Button('', key='-PROG_VOLTAR-', font=tema.texto(tema.TAMANHO_CORPO))],
+        ], key=f'-TELA_{self.nome.upper()}-', visible=False,
+            element_justification='center', expand_x=True, scrollable=True,
+            vertical_scroll_only=True)
+
+    def preparar(self, **contexto):
+        import progresso as mod_progresso
+        janela = self.app.janela
+        dados = mod_progresso.resumo(self.app.sessao.registros, self.nome_layout)
+        t = lambda chave: get_text(chave, self.idioma)   # noqa: E731
+
+        janela['-PROG_TITULO-'].update(t('prog_titulo'))
+        janela['-PROG_VOLTAR-'].update(t('licao_voltar'))
+        janela['-PROG_DIAS_TIT-'].update(t('prog_dias'))
+        janela['-PROG_TECLAS_TIT-'].update(t('prog_teclas'))
+        janela['-PROG_DEDOS_TIT-'].update(t('prog_dedos'))
+
+        if not dados['exercicios']:
+            janela['-PROG_RESUMO-'].update(t('prog_vazio'))
+            janela['-PROG_TENDENCIA-'].update('')
+            for chave in ('-PROG_DIAS-', '-PROG_TECLAS-', '-PROG_DEDOS-'):
+                janela[chave].update(values=[])
+            return
+
+        janela['-PROG_RESUMO-'].update(
+            t('prog_resumo').format(dados['exercicios'], dados['dias']))
+        tendencia = dados['tendencia']
+        if tendencia is None:
+            janela['-PROG_TENDENCIA-'].update(t('prog_cedo'),
+                                              text_color=tema.TEXTO_SECUNDARIO)
+        elif tendencia >= 0:
+            janela['-PROG_TENDENCIA-'].update(t('prog_subindo').format(tendencia),
+                                              text_color=tema.SUCESSO)
+        else:
+            janela['-PROG_TENDENCIA-'].update(t('prog_caindo').format(abs(tendencia)),
+                                              text_color=tema.ATENCAO)
+
+        # Últimos dias primeiro: é o que interessa a quem quer saber como está hoje.
+        dias = [[d['data'], d['exercicios'], f"{d['wpm_medio']:.1f}",
+                 f"{d['precisao']:.1f}%"]
+                for d in reversed(dados['evolucao'][-self.LINHAS_VISIVEIS:])]
+        janela['-PROG_DIAS-'].update(values=dias)
+
+        teclas = []
+        for item in dados['teclas'][:self.LINHAS_VISIVEIS]:
+            if not item['erros']:
+                continue
+            rotulo = t('licao_espaco') if item['tecla'] == ' ' else item['tecla'].upper()
+            confusao = item['confusao']
+            trocada = ('—' if not confusao else
+                       f"{t('licao_espaco') if confusao[0] == ' ' else confusao[0].upper()}"
+                       f"  ({confusao[1]}x)")
+            teclas.append([rotulo, item['erros'], f"{item['taxa']:.1f}%", trocada])
+        janela['-PROG_TECLAS-'].update(values=teclas)
+
+        dedos = [[f"{get_text(f'dedo_{d['dedo']}', self.idioma)} "
+                  f"{get_text(f'mao_{d['mao']}', self.idioma)}",
+                  d['erros'], f"{d['taxa']:.1f}%"]
+                 for d in dados['dedos'][:self.LINHAS_VISIVEIS] if d['erros']]
+        janela['-PROG_DEDOS-'].update(values=dedos)
+
+    def evento(self, nome, valores):
+        if nome == '-PROG_VOLTAR-':
+            return 'menu'
+        return None

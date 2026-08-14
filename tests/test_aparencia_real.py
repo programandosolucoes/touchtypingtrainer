@@ -117,3 +117,58 @@ def test_as_outras_telas_tambem_montam_com_o_tema(tmp_path, nome_da_tela):
         assert licoes.curriculo('abnt2')      # sanidade do módulo
     finally:
         app.janela.close()
+
+
+def test_a_tela_de_progresso_monta_com_historico_de_verdade(tmp_path):
+    """Monta a tela com dados reais gravados, não com histórico vazio.
+
+    Tela que só foi vista vazia esconde erro de formatação de número, de coluna
+    a mais na tabela e de chave de tradução usada só quando há dado.
+    """
+    import aplicativo
+    import historico
+    import licoes
+    import metricas
+    import modo_licao
+
+    arquivo = tmp_path / 'progresso.jsonl'
+    nivel = licoes.curriculo('abnt2')[0]
+    for semente in (1, 2, 3):
+        texto = licoes.gerar_exercicio('abnt2', 1, semente)
+        # Um erro a cada cinco teclas, para o ranking ter o que mostrar.
+        batidas = [metricas.Batida(c, 'x' if i % 5 == 0 else c, 220.0)
+                   for i, c in enumerate(texto)]
+        registro = modo_licao.montar_registro(
+            nivel, 'abnt2', 'pt', texto, semente,
+            {'batidas': batidas, 'duracao_s': 25.0, 'cancelado': False})
+        registro['aprovado'] = False
+        historico.gravar(registro, arquivo)
+
+    app = aplicativo.Aplicativo('pt', arquivo)
+    app._montar()
+    try:
+        assert app.ir_para('progresso')
+        janela = app.janela
+        assert janela['-PROG_RESUMO-'].get()
+        # As três tabelas têm de ter linha: com erro gravado, nenhuma pode estar
+        # vazia — vazio aqui significaria que o diagnóstico não achou o dado.
+        assert janela['-PROG_DIAS-'].Values
+        assert janela['-PROG_TECLAS-'].Values
+        assert janela['-PROG_DEDOS-'].Values
+        # E o texto do dedo tem de estar traduzido, não com a chave crua.
+        primeiro_dedo = janela['-PROG_DEDOS-'].Values[0][0]
+        assert 'dedo_' not in primeiro_dedo and 'mao_' not in primeiro_dedo
+    finally:
+        app.janela.close()
+
+
+def test_a_tela_de_progresso_monta_sem_historico(tmp_path):
+    import aplicativo
+    app = aplicativo.Aplicativo('pt', tmp_path / 'vazio.jsonl')
+    app._montar()
+    try:
+        assert app.ir_para('progresso')
+        assert app.janela['-PROG_TECLAS-'].Values == []
+        assert app.janela['-PROG_RESUMO-'].get()      # mostra o aviso de vazio
+    finally:
+        app.janela.close()
